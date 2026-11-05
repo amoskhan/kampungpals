@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { projectAccess, submissionAccess } = require("../project-access.js");
+const { projectAccess, submissionAccess } = require("../js/project-access.js");
 
 const cases = [
     {

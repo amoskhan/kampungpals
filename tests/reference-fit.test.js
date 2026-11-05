@@ -6,7 +6,7 @@ const {
     referenceImageStyle,
     referenceDeviceForMap,
     dragReferenceCrop
-} = require("../reference-fit.js");
+} = require("../js/reference-fit.js");
 
 test("Stretch and Keep shape ignore any crop", () => {
     const crop = { x: 10, y: 90, zoom: 3 };

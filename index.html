@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Outdoor Education Map Maker</title>
+<title>Kampung Pals</title>
 <link
 rel="icon"
 type="image/svg+xml"
@@ -11,7 +11,7 @@ href="assets/logo.svg"
 >
 <link
 rel="stylesheet"
-href="style.css"
+href="style.css?v=20261105f"
 >
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -33,7 +33,7 @@ height="48"
 OE FIELD JOURNAL
 </div>
 <h1>
-Outdoor Education Map Maker
+Kampung Pals
 </h1>
 </div>
 </div>
@@ -1383,14 +1383,6 @@ PNG download
 
 </div>
 
-<button
-id="saveTaskSettingsButton"
-class="primary-button"
-type="button"
->
-Save Task Settings
-</button>
-
 <div class="reference-manager">
 
 <div>
@@ -1421,14 +1413,97 @@ Remove Reference
 
 </div>
 
-<img
+<div
 id="teacherReferencePreview"
-class="teacher-reference-preview"
-alt="Current reference map"
+class="reference-preview"
 hidden
 >
-
+<fieldset class="reference-fit-choice">
+<legend>Reference Fit</legend>
+<label class="reference-fit-option">
+<input type="radio" name="referenceFit" value="stretch">
+<span class="reference-fit-card">
+<strong>Stretch</strong>
+<small>Fills the screen, but can look squashed</small>
+</span>
+</label>
+<label class="reference-fit-option">
+<input type="radio" name="referenceFit" value="keep">
+<span class="reference-fit-card">
+<strong>Keep shape</strong>
+<small>Shows the whole image, with blank bars</small>
+</span>
+</label>
+<label class="reference-fit-option">
+<input type="radio" name="referenceFit" value="crop">
+<span class="reference-fit-card">
+<strong>Crop</strong>
+<small>Fills the screen, but cuts off the edges</small>
+</span>
+</label>
+</fieldset>
+<p class="reference-preview-hint">
+This is how students see the Reference Map. Tap a device to enlarge it, then press Save Task Settings to keep your choice.
+</p>
+<div class="reference-preview-grid">
+<figure data-device="iphone" class="reference-preview-device">
+<button type="button" class="reference-preview-pick" aria-pressed="false" aria-label="Enlarge iPhone upright">
+<span class="reference-preview-frame"><img alt="Reference Map on an upright iPhone"></span>
+</button>
+<figcaption>iPhone upright</figcaption>
+<span class="reference-crop-status" hidden></span>
+</figure>
+<figure data-device="iphone-sideways" class="reference-preview-device">
+<button type="button" class="reference-preview-pick" aria-pressed="false" aria-label="Enlarge iPhone sideways">
+<span class="reference-preview-frame"><img alt="Reference Map on a sideways iPhone"></span>
+</button>
+<figcaption>iPhone sideways</figcaption>
+<span class="reference-crop-status" hidden></span>
+</figure>
+<figure data-device="ipad-upright" class="reference-preview-device">
+<button type="button" class="reference-preview-pick" aria-pressed="false" aria-label="Enlarge iPad upright">
+<span class="reference-preview-frame"><img alt="Reference Map on an upright iPad"></span>
+</button>
+<figcaption>iPad upright</figcaption>
+<span class="reference-crop-status" hidden></span>
+</figure>
+<figure data-device="ipad-sideways" class="reference-preview-device">
+<button type="button" class="reference-preview-pick" aria-pressed="false" aria-label="Enlarge iPad sideways">
+<span class="reference-preview-frame"><img alt="Reference Map on a sideways iPad"></span>
+</button>
+<figcaption>iPad sideways</figcaption>
+<span class="reference-crop-status" hidden></span>
+</figure>
+<figure data-device="computer" class="reference-preview-device is-selected">
+<button type="button" class="reference-preview-pick" aria-pressed="true" aria-label="Enlarge Computer">
+<span class="reference-preview-frame"><img alt="Reference Map on a computer"></span>
+</button>
+<figcaption>Computer</figcaption>
+<span class="reference-crop-status" hidden></span>
+</figure>
 </div>
+<div class="reference-preview-large" data-device="computer">
+<img alt="Enlarged view of the Reference Map" draggable="false">
+</div>
+<div id="referenceCropTools" class="reference-crop-tools" hidden>
+<p>Drag the image to choose what students see on this device.</p>
+<label class="reference-crop-zoom">
+Zoom
+<input id="referenceCropZoom" type="range" min="1" max="4" step="0.05" value="1">
+</label>
+<button id="referenceCropReset" class="reference-crop-reset" type="button">Reset</button>
+</div>
+</div>
+</div>
+
+<button
+id="saveTaskSettingsButton"
+class="primary-button"
+type="button"
+>
+Save Task Settings
+</button>
+<span id="referenceUnsaved" class="reference-unsaved" hidden>Unsaved changes</span>
 
 <div class="submission-section">
 
@@ -2636,9 +2711,12 @@ Save
 </div>
 </div>
 
-<script src="app.js"></script>
-<script src="map-improvements.js"></script>
-<script src="corrections-improvements.js"></script>
-<script src="tutorial-improvements.js"></script>
+<!-- Change ?v= on these files whenever they change, so browsers stop using old copies. -->
+<script src="project-access.js?v=20261105f"></script>
+<script src="reference-fit.js?v=20261105f"></script>
+<script src="app.js?v=20261105f"></script>
+<script src="map-improvements.js?v=20261105f"></script>
+<script src="corrections-improvements.js?v=20261105f"></script>
+<script src="tutorial-improvements.js?v=20261105f"></script>
 </body>
 </html>

@@ -1,3 +1,42 @@
+/*
+crypto.randomUUID only exists on secure pages in newer browsers, so an older
+iPad, or a test over a local network address, would otherwise crash at startup.
+*/
+function createUuid() {
+    if (
+        typeof crypto.randomUUID === "function"
+    ) {
+        return crypto.randomUUID();
+    }
+
+    const bytes =
+        crypto.getRandomValues(
+            new Uint8Array(16)
+        );
+
+    // Mark it as a version 4 UUID, the format crypto.randomUUID produces.
+    bytes[6] =
+        (bytes[6] & 0x0f) | 0x40;
+
+    bytes[8] =
+        (bytes[8] & 0x3f) | 0x80;
+
+    const hex =
+        Array.from(
+            bytes,
+            byte =>
+                byte.toString(16).padStart(2, "0")
+        ).join("");
+
+    return [
+        hex.slice(0, 8),
+        hex.slice(8, 12),
+        hex.slice(12, 16),
+        hex.slice(16, 20),
+        hex.slice(20)
+    ].join("-");
+}
+
 const SVG_NS = "http://www.w3.org/2000/svg";
 const HTML_NS = "http://www.w3.org/1999/xhtml";
 
@@ -26,7 +65,7 @@ function getOrCreateEditorToken() {
     if (!token) {
 
         token =
-            crypto.randomUUID();
+            createUuid();
 
         sessionStorage.setItem(
             EDITOR_TOKEN_STORAGE_KEY,
@@ -105,8 +144,9 @@ const DEFAULT_ALLOWED_TOOLS = {
     hazard: false,
 
     reference: true,
-
-    download: true
+    download: true,
+    // Tasks saved before Reference Fit existed have none, so they stay stretched.
+    reference_fit: "stretch"
 };
 
 
@@ -1473,15 +1513,30 @@ function currentLearnerClassLabel() {
 }
 
 
+/*
+Project Access for the Project open on this student's device. The Editor lock
+flags stay as the facts about this device; the decisions come from the module.
+*/
+function studentProjectAccess() {
+    return projectAccess({
+        status:
+            projectHandedIn
+                ? "submitted"
+                : currentSubmission?.status,
+        hasReview:
+            Boolean(
+                studentReviewData
+            ),
+        isEditor:
+            !studentReadOnly &&
+            editLockOwned
+    });
+}
+
 function isStudentEditingAllowed() {
-
     return (
-
         appMode === "student" &&
-
-        !studentReadOnly &&
-
-        editLockOwned
+        studentProjectAccess().canDraw
     );
 }
 
@@ -2085,12 +2140,11 @@ function scheduleSave() {
 
 
     if (
-        studentReadOnly
+        studentReadOnly ||
+        studentProjectAccess().handedIn
     ) {
-
         return;
     }
-
 
     saveLocalBackup();
 
@@ -2130,17 +2184,15 @@ async function saveStudentMap(
     }
 
 
+    const access =
+        studentProjectAccess();
+
     if (
-
-        studentReadOnly ||
-
-        !editLockOwned
-
+        !access.canDraw
     ) {
-
         if (showMessage) {
-
             statusBar.textContent =
+                access.lockedMessage ||
                 "Read-only: this project is being edited on another device, so changes from this device are not saved.";
         }
 
@@ -2339,15 +2391,14 @@ async function submitToTeacher() {
     }
 
 
+    const access =
+        studentProjectAccess();
+
     if (
-
-        studentReadOnly ||
-
-        !editLockOwned
-
+        !access.canDraw
     ) {
-
         statusBar.textContent =
+            access.lockedMessage ||
             "Read-only: only the device currently holding the edit lock can submit this project.";
 
         return;
@@ -2542,14 +2593,14 @@ function applyStudentEditLockUI() {
             false;
 
 
-        if (
-            projectHandedIn
-        ) {
+        const access =
+            studentProjectAccess();
 
+        if (
+            access.handedIn
+        ) {
             const marked =
-                Boolean(
-                    studentReviewData
-                );
+                access.marked;
 
 
             editLockLabel.textContent =
@@ -3061,6 +3112,38 @@ async function getSignedReferenceUrl(
 }
 
 
+/*
+Worked out from the map area each time, so turning a device mid-lesson uses the
+crop for its new shape.
+*/
+function applyReferenceOverlayFit() {
+    const tools =
+        currentTask?.allowed_tools;
+
+    const style =
+        referenceImageStyle(
+            tools?.reference_fit,
+            tools?.reference_crops?.[
+                referenceDeviceForMap(
+                    canvasWrap.clientWidth,
+                    canvasWrap.clientHeight,
+                    window.innerHeight
+                )
+            ]
+        );
+
+    Object.assign(
+        referenceOverlay.style,
+        style
+    );
+
+    // Keep shape leaves bars around the image, which should not show the map.
+    referenceOverlay.style.backgroundColor =
+        style.objectFit === "contain"
+            ? "#fff"
+            : "";
+}
+
 async function loadCurrentTaskReference() {
 
     currentReferenceUrl =
@@ -3075,6 +3158,7 @@ async function loadCurrentTaskReference() {
         "src"
     );
 
+    applyReferenceOverlayFit();
 
     if (
         !currentTask?.reference_path
@@ -3124,6 +3208,7 @@ function showReferenceOverlay() {
     referenceHoldActive =
         true;
 
+    applyReferenceOverlayFit();
 
     referenceOverlay.hidden =
         false;
@@ -12875,9 +12960,7 @@ HANDED IN IS FINAL
 ========================================================= */
 
 function handedInStatusText() {
-
-    return studentReviewData
-
+    return studentProjectAccess().marked
         ? "Marked. Read your teacher's feedback below."
 
         : "Handed in. Waiting for your teacher to mark it.";
@@ -13067,10 +13150,18 @@ async function signedOutElsewhere() {
 
 
 function reviewIsHandedIn() {
-
     return (
-        reviewSubmission?.status ===
-        "submitted"
+        Boolean(
+            reviewSubmission
+        ) &&
+        projectAccess({
+            status:
+                reviewSubmission.status,
+            hasReview:
+                Boolean(
+                    reviewLastSeenSavedAt
+                )
+        }).teacherCanMark
     );
 }
 
@@ -14644,13 +14735,18 @@ Marked
                 }
 
 <span class="student-project-status ${
-                    project.status === "submitted"
+                    projectAccess({
+                        status: project.status,
+                        hasReview
+                    }).className
                         ? "submitted"
                         : ""
                 }">
 ${escapeHtml(
-                    project.status ||
-                    "draft"
+                    projectAccess({
+                        status: project.status,
+                        hasReview
+                    }).statusWord
                 )}
 </span>
 
@@ -15525,10 +15621,14 @@ async function loadStudentProject(
 
 
         projectHandedIn =
-            project.status === "submitted" ||
-            Boolean(
-                latestStudentReview
-            );
+            projectAccess({
+                status:
+                    project.status,
+                hasReview:
+                    Boolean(
+                        latestStudentReview
+                    )
+            }).handedIn;
 
 
         const acquired =
@@ -15560,12 +15660,7 @@ async function loadStudentProject(
 
 
             statusBar.textContent =
-
-                project.status === "submitted"
-
-                    ? "You are drawing. This project has been handed in, but you can keep editing and hand it in again."
-
-                    : "You are drawing. Your work saves automatically.";
+                "You are drawing. Your work saves automatically.";
         }
 
         else {
@@ -16816,7 +16911,7 @@ async function sendAppFeedback() {
     try {
 
         const feedbackId =
-            crypto.randomUUID();
+            createUuid();
 
 
         const context =
@@ -19753,7 +19848,8 @@ createTaskButton.addEventListener(
                             "Create an abstract map using relative size and position.",
 
                         allowed_tools: {
-                            ...DEFAULT_ALLOWED_TOOLS
+                            ...DEFAULT_ALLOWED_TOOLS,
+                            reference_fit: "keep"
                         },
 
                         allow_guests:
@@ -20014,13 +20110,12 @@ async function selectTeacherTask(
     );
 
 
-    teacherReferencePreview.hidden =
-        true;
-
-
-    teacherReferencePreview.removeAttribute(
-        "src"
+    setReferenceFitChoice(
+        tools.reference_fit,
+        tools.reference_crops
     );
+
+    clearTeacherReferencePreview();
 
 
     if (
@@ -20035,12 +20130,9 @@ async function selectTeacherTask(
 
         if (url) {
 
-            teacherReferencePreview.src =
-                url;
-
-
-            teacherReferencePreview.hidden =
-                false;
+            showTeacherReferencePreview(
+                url
+            );
         }
     }
 
@@ -20101,9 +20193,15 @@ saveTaskSettingsButton.addEventListener(
                 ) => {
 
                     allowed[key] =
-                        input.checked;
-                }
-            );
+                    input.checked;
+            }
+        );
+
+    allowed.reference_fit =
+        selectedReferenceFit();
+
+    allowed.reference_crops =
+        referenceCropsToSave();
 
 
         const selectedClassIds =
@@ -20247,6 +20345,8 @@ saveTaskSettingsButton.addEventListener(
 
             selectedTeacherTask =
                 data;
+
+            updateReferenceUnsaved();
 
 
             teacherTaskHeading.textContent =
@@ -20599,13 +20699,7 @@ deleteTaskButton.addEventListener(
                 "";
 
 
-            teacherReferencePreview.hidden =
-                true;
-
-
-            teacherReferencePreview.removeAttribute(
-                "src"
-            );
+            clearTeacherReferencePreview();
 
 
             noTaskSelected.hidden =
@@ -20662,6 +20756,384 @@ deleteTaskButton.addEventListener(
     }
 );
 
+
+let referenceCrops = {};
+
+let referencePreviewDevice =
+    "computer";
+
+const referencePreviewDevices =
+    [...teacherReferencePreview.querySelectorAll(".reference-preview-device")];
+
+const referencePreviewLarge =
+    teacherReferencePreview.querySelector(".reference-preview-large");
+
+const referenceCropTools =
+    $("referenceCropTools");
+
+const referenceCropZoom =
+    $("referenceCropZoom");
+
+const referenceCropReset =
+    $("referenceCropReset");
+
+const referenceUnsaved =
+    $("referenceUnsaved");
+
+function selectedReferenceFit() {
+    return (
+        document.querySelector(
+            'input[name="referenceFit"]:checked'
+        )?.value ||
+        DEFAULT_ALLOWED_TOOLS.reference_fit
+    );
+}
+
+function referenceCropsToSave() {
+    const saved = {};
+
+    REFERENCE_DEVICES.forEach(
+        ({ key }) => {
+            if (
+                isReferenceCropAdjusted(
+                    referenceCrops[key]
+                )
+            ) {
+                saved[key] =
+                    normaliseReferenceCrop(
+                        referenceCrops[key]
+                    );
+            }
+        }
+    );
+
+    return saved;
+}
+
+function toolsWithoutReferenceCrops() {
+    return {
+        ...(
+            selectedTeacherTask?.allowed_tools ||
+            {}
+        ),
+        reference_crops: {}
+    };
+}
+
+function referenceSettingsSignature(
+    fit,
+    crops
+) {
+    return JSON.stringify([
+        fit,
+        REFERENCE_DEVICES.map(
+            ({ key }) =>
+                isReferenceCropAdjusted(crops?.[key])
+                    ? normaliseReferenceCrop(crops[key])
+                    : null
+        )
+    ]);
+}
+
+function updateReferenceUnsaved() {
+    const tools = {
+        ...DEFAULT_ALLOWED_TOOLS,
+        ...(
+            selectedTeacherTask?.allowed_tools ||
+            {}
+        )
+    };
+
+    referenceUnsaved.hidden =
+        teacherReferencePreview.hidden ||
+        referenceSettingsSignature(
+            selectedReferenceFit(),
+            referenceCrops
+        ) ===
+        referenceSettingsSignature(
+            REFERENCE_FIT_STYLES[tools.reference_fit]
+                ? tools.reference_fit
+                : DEFAULT_ALLOWED_TOOLS.reference_fit,
+            tools.reference_crops
+        );
+}
+
+function applyReferencePreviewFit() {
+    const fit =
+        selectedReferenceFit();
+
+    const cropping =
+        fit === "crop";
+
+    referencePreviewDevices.forEach(
+        device => {
+            const key =
+                device.dataset.device;
+
+            const selected =
+                key === referencePreviewDevice;
+
+            device.classList.toggle(
+                "is-selected",
+                selected
+            );
+
+            device
+                .querySelector("button")
+                .setAttribute(
+                    "aria-pressed",
+                    selected
+                );
+
+            Object.assign(
+                device.querySelector("img").style,
+                referenceImageStyle(
+                    fit,
+                    referenceCrops[key]
+                )
+            );
+
+            const adjusted =
+                isReferenceCropAdjusted(
+                    referenceCrops[key]
+                );
+
+            const status =
+                device.querySelector(".reference-crop-status");
+
+            status.hidden =
+                !cropping;
+
+            status.textContent =
+                adjusted
+                    ? "Adjusted"
+                    : "Not adjusted";
+
+            status.classList.toggle(
+                "is-adjusted",
+                adjusted
+            );
+        }
+    );
+
+    referencePreviewLarge.dataset.device =
+        referencePreviewDevice;
+
+    referencePreviewLarge.classList.toggle(
+        "is-croppable",
+        cropping
+    );
+
+    Object.assign(
+        referencePreviewLarge.querySelector("img").style,
+        referenceImageStyle(
+            fit,
+            referenceCrops[referencePreviewDevice]
+        )
+    );
+
+    referenceCropTools.hidden =
+        !cropping;
+
+    referenceCropZoom.value =
+        normaliseReferenceCrop(
+            referenceCrops[referencePreviewDevice]
+        ).zoom;
+
+    updateReferenceUnsaved();
+}
+
+function setReferenceFitChoice(
+    fit,
+    crops
+) {
+    const choice =
+        REFERENCE_FIT_STYLES[fit]
+            ? fit
+            : DEFAULT_ALLOWED_TOOLS.reference_fit;
+
+    document
+        .querySelector(
+            `input[name="referenceFit"][value="${choice}"]`
+        )
+        .checked = true;
+
+    referenceCrops = {
+        ...(crops || {})
+    };
+
+    applyReferencePreviewFit();
+}
+
+function showTeacherReferencePreview(
+    url
+) {
+    teacherReferencePreview
+        .querySelectorAll("img")
+        .forEach(
+            image => {
+                image.src = url;
+            }
+        );
+
+    teacherReferencePreview.hidden =
+        false;
+
+    applyReferencePreviewFit();
+}
+
+function clearTeacherReferencePreview() {
+    teacherReferencePreview.hidden =
+        true;
+
+    referenceUnsaved.hidden =
+        true;
+
+    teacherReferencePreview
+        .querySelectorAll("img")
+        .forEach(
+            image => {
+                image.removeAttribute("src");
+            }
+        );
+}
+
+document
+    .querySelectorAll(
+        'input[name="referenceFit"]'
+    )
+    .forEach(
+        input => {
+            input.addEventListener(
+                "change",
+                applyReferencePreviewFit
+            );
+        }
+    );
+
+referencePreviewDevices.forEach(
+    device => {
+        device
+            .querySelector("button")
+            .addEventListener(
+                "click",
+                () => {
+                    referencePreviewDevice =
+                        device.dataset.device;
+
+                    applyReferencePreviewFit();
+                }
+            );
+    }
+);
+
+let referenceCropDrag = null;
+
+referencePreviewLarge.addEventListener(
+    "pointerdown",
+    event => {
+        if (
+            selectedReferenceFit() !== "crop"
+        ) {
+            return;
+        }
+
+        event.preventDefault();
+
+        referencePreviewLarge.setPointerCapture(
+            event.pointerId
+        );
+
+        referencePreviewLarge.classList.add(
+            "is-dragging"
+        );
+
+        referenceCropDrag = {
+            pointerId: event.pointerId,
+            x: event.clientX,
+            y: event.clientY
+        };
+    }
+);
+
+referencePreviewLarge.addEventListener(
+    "pointermove",
+    event => {
+        if (
+            referenceCropDrag?.pointerId !== event.pointerId
+        ) {
+            return;
+        }
+
+        const image =
+            referencePreviewLarge.querySelector("img");
+
+        referenceCrops[referencePreviewDevice] =
+            dragReferenceCrop({
+                crop:
+                    referenceCrops[referencePreviewDevice],
+                dx:
+                    event.clientX - referenceCropDrag.x,
+                dy:
+                    event.clientY - referenceCropDrag.y,
+                frameWidth:
+                    referencePreviewLarge.clientWidth,
+                frameHeight:
+                    referencePreviewLarge.clientHeight,
+                imageWidth:
+                    image.naturalWidth,
+                imageHeight:
+                    image.naturalHeight
+            });
+
+        referenceCropDrag.x =
+            event.clientX;
+
+        referenceCropDrag.y =
+            event.clientY;
+
+        applyReferencePreviewFit();
+    }
+);
+
+["pointerup", "pointercancel"].forEach(
+    type => {
+        referencePreviewLarge.addEventListener(
+            type,
+            () => {
+                referenceCropDrag = null;
+
+                referencePreviewLarge.classList.remove(
+                    "is-dragging"
+                );
+            }
+        );
+    }
+);
+
+referenceCropZoom.addEventListener(
+    "input",
+    () => {
+        referenceCrops[referencePreviewDevice] = {
+            ...normaliseReferenceCrop(
+                referenceCrops[referencePreviewDevice]
+            ),
+            zoom:
+                Number(referenceCropZoom.value)
+        };
+
+        applyReferencePreviewFit();
+    }
+);
+
+referenceCropReset.addEventListener(
+    "click",
+    () => {
+        delete referenceCrops[referencePreviewDevice];
+
+        applyReferencePreviewFit();
+    }
+);
 
 teacherReferenceFile.addEventListener(
 
@@ -20752,7 +21224,9 @@ teacherReferenceFile.addEventListener(
                     "tasks"
                 )
                 .update({
-                    reference_path: path
+                    reference_path: path,
+                    allowed_tools:
+                        toolsWithoutReferenceCrops()
                 })
                 .eq(
                     "id",
@@ -20838,7 +21312,9 @@ removeReferenceButton.addEventListener(
                     "tasks"
                 )
                 .update({
-                    reference_path: null
+                    reference_path: null,
+                    allowed_tools:
+                        toolsWithoutReferenceCrops()
                 })
                 .eq(
                     "id",
@@ -21298,8 +21774,12 @@ No student saves yet.
             ) {
 
                 const becameSubmitted =
-                    entry.submission.status !== "submitted" &&
-                    submission.status === "submitted";
+                    !submissionAccess(
+                        entry.submission
+                    ).handedIn &&
+                    submissionAccess(
+                        submission
+                    ).handedIn;
 
 
                 entry.submission =
@@ -21548,13 +22028,16 @@ ${
 ${new Date(submission.updated_at).toLocaleString()}
 </div>
 <div class="status-pill ${
-            submission.status === "submitted"
+            submissionAccess(
+                submission
+            ).handedIn
                 ? "submitted"
                 : ""
         }">
 ${escapeHtml(
-            submission.status ||
-            "draft"
+            submissionAccess(
+                submission
+            ).statusWord
         )}
 </div>
 `
@@ -21671,44 +22154,16 @@ refreshSubmissionsButton.addEventListener(
 function galleryStatus(
     submission
 ) {
-
-    if (
-        submission.reviewed_at
-    ) {
-
-        return {
-
-            label:
-                "Marked",
-
-            className:
-                "marked"
-        };
-    }
-
-
-    if (
-        submission.status === "submitted"
-    ) {
-
-        return {
-
-            label:
-                "Submitted",
-
-            className:
-                "submitted"
-        };
-    }
-
+    const {
+        label,
+        className
+    } = submissionAccess(
+        submission
+    );
 
     return {
-
-        label:
-            "Drawing",
-
-        className:
-            ""
+        label,
+        className
     };
 }
 
@@ -22510,8 +22965,12 @@ No student saves yet.
             ) {
 
                 const becameSubmitted =
-                    entry.submission.status !== "submitted" &&
-                    submission.status === "submitted";
+                    !submissionAccess(
+                        entry.submission
+                    ).handedIn &&
+                    submissionAccess(
+                        submission
+                    ).handedIn;
 
 
                 entry.submission =
@@ -23457,12 +23916,545 @@ saveTeacherFeedbackButton.addEventListener(
 );
 
 
+const EXPORT_STYLE_PROPERTIES = [
+    "fill",
+    "fill-opacity",
+    "stroke",
+    "stroke-width",
+    "stroke-opacity",
+    "stroke-dasharray",
+    "stroke-linecap",
+    "stroke-linejoin",
+    "opacity",
+    "font-family",
+    "font-size",
+    "font-weight",
+    "text-anchor",
+    "dominant-baseline",
+    "paint-order",
+    "visibility"
+];
+
+const EXPORT_LEGEND_COLUMNS = 3;
+
+/*
+An exported SVG is drawn as a separate image, so style.css does not reach
+it. Copy the styles each element is showing into the element itself.
+*/
+function copyExportStyles(
+    source,
+    target
+) {
+    const sourceElements = [
+        source,
+        ...source.querySelectorAll("*")
+    ];
+
+    const targetElements = [
+        target,
+        ...target.querySelectorAll("*")
+    ];
+
+    sourceElements.forEach(
+        (element, index) => {
+            if (
+                element.namespaceURI !== SVG_NS
+            ) {
+                return;
+            }
+
+            const computed =
+                getComputedStyle(element);
+
+            const copy =
+                targetElements[index];
+
+            EXPORT_STYLE_PROPERTIES.forEach(
+                property => {
+                    copy.style.setProperty(
+                        property,
+                        computed.getPropertyValue(property)
+                    );
+                }
+            );
+
+            if (
+                computed.display === "none"
+            ) {
+                copy.style.display =
+                    "none";
+            }
+        }
+    );
+}
+
+function wrapExportText(
+    text,
+    maxWidth,
+    font
+) {
+    const context =
+        document
+            .createElement("canvas")
+            .getContext("2d");
+
+    context.font =
+        font;
+
+    const fits =
+        value =>
+            context.measureText(value).width <= maxWidth;
+
+    const lines = [];
+    let line = "";
+
+    String(text || "")
+        .split(/\s+/)
+        .filter(Boolean)
+        .forEach(
+            word => {
+                const joined =
+                    line
+                        ? `${line} ${word}`
+                        : word;
+
+                if (
+                    fits(joined)
+                ) {
+                    line = joined;
+                    return;
+                }
+
+                if (line) {
+                    lines.push(line);
+                }
+
+                line = "";
+
+                [...word].forEach(
+                    character => {
+                        if (
+                            line &&
+                            !fits(line + character)
+                        ) {
+                            lines.push(line);
+                            line = "";
+                        }
+
+                        line += character;
+                    }
+                );
+            }
+        );
+
+    if (line) {
+        lines.push(line);
+    }
+
+    return lines;
+}
+
+function createExportText(
+    lines,
+    x,
+    y,
+    fontSize,
+    {
+        anchor = "start",
+        fill = "#111",
+        fontWeight = "400",
+        halo = false
+    } = {}
+) {
+    const text =
+        document.createElementNS(
+            SVG_NS,
+            "text"
+        );
+
+    text.setAttribute("x", x);
+    text.setAttribute("y", y);
+    text.setAttribute("text-anchor", anchor);
+    text.setAttribute("fill", fill);
+    text.setAttribute("font-family", "Arial, sans-serif");
+    text.setAttribute("font-size", fontSize);
+    text.setAttribute("font-weight", fontWeight);
+
+    if (halo) {
+        text.setAttribute("stroke", "#fff");
+        text.setAttribute("stroke-width", fontSize / 6);
+        text.setAttribute("stroke-linejoin", "round");
+        text.setAttribute("paint-order", "stroke");
+    }
+
+    lines.forEach(
+        (line, index) => {
+            const span =
+                document.createElementNS(
+                    SVG_NS,
+                    "tspan"
+                );
+
+            span.setAttribute("x", x);
+
+            if (index) {
+                span.setAttribute("dy", fontSize * 1.15);
+            }
+
+            span.textContent =
+                line;
+
+            text.appendChild(span);
+        }
+    );
+
+    return text;
+}
+
+/*
+Browsers refuse to export a canvas drawn from an SVG containing
+foreignObject, which is what Landmark labels use on screen. Exports draw
+the same label as SVG text.
+*/
+function replaceExportLabels(
+    svg
+) {
+    svg
+        .querySelectorAll("foreignObject")
+        .forEach(
+            container => {
+                const x =
+                    Number(container.getAttribute("x"));
+                const y =
+                    Number(container.getAttribute("y"));
+                const width =
+                    Number(container.getAttribute("width"));
+                const height =
+                    Number(container.getAttribute("height"));
+
+                const fontSize =
+                    parseFloat(
+                        container.firstElementChild?.style.fontSize
+                    ) || 22;
+
+                const lines =
+                    wrapExportText(
+                        container.textContent,
+                        Math.max(width - 8, fontSize),
+                        `800 ${fontSize}px Arial, sans-serif`
+                    );
+
+                const firstBaseline =
+                    y +
+                    height / 2 -
+                    (lines.length - 1) * fontSize * 1.15 / 2 +
+                    fontSize * .35;
+
+                container.replaceWith(
+                    createExportText(
+                        lines,
+                        x + width / 2,
+                        firstBaseline,
+                        fontSize,
+                        {
+                            anchor: "middle",
+                            fontWeight: "800",
+                            halo: true
+                        }
+                    )
+                );
+            }
+        );
+}
+
+function createExportNorthArrow(
+    x,
+    y
+) {
+    const group =
+        document.createElementNS(
+            SVG_NS,
+            "g"
+        );
+
+    group.setAttribute(
+        "aria-label",
+        "North"
+    );
+
+    const labelColour =
+        getComputedStyle(
+            northArrowInner.querySelector(".north-fixed-label")
+        ).color;
+
+    const colour =
+        getComputedStyle(
+            northArrowInner.querySelector(".north-arrow-symbol")
+        ).color;
+
+    const panel =
+        document.createElementNS(
+            SVG_NS,
+            "rect"
+        );
+
+    panel.setAttribute("x", x);
+    panel.setAttribute("y", y);
+    panel.setAttribute("width", 82);
+    panel.setAttribute("height", 92);
+    panel.setAttribute("rx", 10);
+    panel.setAttribute("fill", "#fff");
+    panel.setAttribute("stroke", "#bbb");
+
+    const shaft =
+        document.createElementNS(
+            SVG_NS,
+            "line"
+        );
+
+    shaft.setAttribute("x1", x + 41);
+    shaft.setAttribute("x2", x + 41);
+    shaft.setAttribute("y1", y + 80);
+    shaft.setAttribute("y2", y + 44);
+    shaft.setAttribute("stroke", colour);
+    shaft.setAttribute("stroke-width", 4);
+
+    const head =
+        document.createElementNS(
+            SVG_NS,
+            "polygon"
+        );
+
+    head.setAttribute(
+        "points",
+        `${x + 41},${y + 32} ${x + 51},${y + 50} ${x + 31},${y + 50}`
+    );
+
+    head.setAttribute("fill", colour);
+
+    group.append(
+        panel,
+        createExportText(
+            ["N"],
+            x + 41,
+            y + 25,
+            20,
+            {
+                anchor: "middle",
+                fill: labelColour,
+                fontWeight: "800"
+            }
+        ),
+        shaft,
+        head
+    );
+
+    return group;
+}
+
+/*
+Builds the Legend panel from the Legend on screen, so the export always
+lists what the student sees. Returns null when the map has nothing to list.
+*/
+function createExportLegend(
+    top,
+    width
+) {
+    const items =
+        [...legendList.querySelectorAll(".legend-item")];
+
+    if (!items.length) {
+        return null;
+    }
+
+    const group =
+        document.createElementNS(
+            SVG_NS,
+            "g"
+        );
+
+    const padding = 32;
+    const previewWidth = 62;
+    const previewHeight = 48;
+    const gap = 16;
+
+    const columnWidth =
+        (width - padding * 2) /
+        EXPORT_LEGEND_COLUMNS;
+
+    const textWidth =
+        columnWidth -
+        previewWidth -
+        gap * 2;
+
+    let y =
+        top + 44;
+
+    group.appendChild(
+        createExportText(
+            ["Legend"],
+            padding,
+            y,
+            30,
+            {
+                fontWeight: "800"
+            }
+        )
+    );
+
+    y += 20;
+
+    const appendRows =
+        rowItems => {
+            for (
+                let start = 0;
+                start < rowItems.length;
+                start += EXPORT_LEGEND_COLUMNS
+            ) {
+                let rowHeight =
+                    previewHeight;
+
+                rowItems
+                    .slice(start, start + EXPORT_LEGEND_COLUMNS)
+                    .forEach(
+                        (item, column) => {
+                            const x =
+                                padding +
+                                column * columnWidth;
+
+                            const preview =
+                                item.querySelector(".legend-preview");
+
+                            if (preview) {
+                                const copy =
+                                    preview.cloneNode(true);
+
+                                copyExportStyles(
+                                    preview,
+                                    copy
+                                );
+
+                                replaceExportLabels(copy);
+
+                                copy.removeAttribute("class");
+                                copy.setAttribute("x", x);
+                                copy.setAttribute("y", y);
+                                copy.setAttribute("width", previewWidth);
+                                copy.setAttribute("height", previewHeight);
+
+                                group.appendChild(copy);
+                            }
+
+                            const nameLines =
+                                wrapExportText(
+                                    item.querySelector(".legend-object-name")?.textContent,
+                                    textWidth,
+                                    "700 22px Arial, sans-serif"
+                                );
+
+                            const categoryLines =
+                                wrapExportText(
+                                    item.querySelector(".legend-category")?.textContent,
+                                    textWidth,
+                                    "17px Arial, sans-serif"
+                                );
+
+                            const textX =
+                                x + previewWidth + gap;
+
+                            group.appendChild(
+                                createExportText(
+                                    nameLines,
+                                    textX,
+                                    y + 20,
+                                    22,
+                                    {
+                                        fontWeight: "700"
+                                    }
+                                )
+                            );
+
+                            const categoryY =
+                                y + 20 +
+                                nameLines.length * 22 * 1.15;
+
+                            group.appendChild(
+                                createExportText(
+                                    categoryLines,
+                                    textX,
+                                    categoryY,
+                                    17,
+                                    {
+                                        fill: "#555"
+                                    }
+                                )
+                            );
+
+                            rowHeight =
+                                Math.max(
+                                    rowHeight,
+                                    categoryY - y +
+                                    categoryLines.length * 17 * 1.15
+                                );
+                        }
+                    );
+
+                y += rowHeight + gap;
+            }
+        };
+
+    const hazardItems =
+        items.filter(
+            item =>
+                item.closest(".legend-hazards")
+        );
+
+    appendRows(
+        items.filter(
+            item =>
+                !hazardItems.includes(item)
+        )
+    );
+
+    if (hazardItems.length) {
+        y += 22;
+
+        group.appendChild(
+            createExportText(
+                ["Hazards"],
+                padding,
+                y,
+                24,
+                {
+                    fontWeight: "800",
+                    fill: HAZARD_RED
+                }
+            )
+        );
+
+        y += 14;
+
+        appendRows(hazardItems);
+    }
+
+    return {
+        group,
+        height:
+            y - top + padding / 2
+    };
+}
+
 function buildExportSvg() {
 
     const clone =
         canvas.cloneNode(
             true
         );
+
+    copyExportStyles(
+        canvas,
+        clone
+    );
 
 
     clone
@@ -23501,30 +24493,76 @@ function buildExportSvg() {
     }
 
 
-    clone.setAttribute(
-        "xmlns",
-        SVG_NS
+    replaceExportLabels(
+        clone
     );
-
 
     clone.setAttribute(
         "width",
         CANVAS_WIDTH
     );
 
-
     clone.setAttribute(
         "height",
         CANVAS_HEIGHT
     );
 
+    const legend =
+        createExportLegend(
+            CANVAS_HEIGHT,
+            CANVAS_WIDTH
+        );
+
+    const totalHeight =
+        CANVAS_HEIGHT +
+        (legend?.height || 0);
+
+    const page =
+        document.createElementNS(
+            SVG_NS,
+            "svg"
+        );
+
+    page.setAttribute(
+        "viewBox",
+        `0 0 ${CANVAS_WIDTH} ${totalHeight}`
+    );
+
+    page.setAttribute(
+        "width",
+        CANVAS_WIDTH
+    );
+
+    page.setAttribute(
+        "height",
+        totalHeight
+    );
+
+    page.append(
+        clone,
+        createExportNorthArrow(
+            CANVAS_WIDTH - 94,
+            12
+        )
+    );
+
+    if (legend) {
+        page.appendChild(
+            legend.group
+        );
+    }
 
     return new XMLSerializer()
         .serializeToString(
-            clone
+            page
         );
 }
 
+
+function showExportFailure() {
+    statusBar.textContent =
+        "Could not download the map. Please try again.";
+}
 
 async function downloadMapPNG() {
 
@@ -23564,11 +24602,10 @@ async function downloadMapPNG() {
 
 
             exportCanvas.width =
-                CANVAS_WIDTH;
-
+                image.naturalWidth;
 
             exportCanvas.height =
-                CANVAS_HEIGHT;
+                image.naturalHeight;
 
 
             const context =
@@ -23601,9 +24638,14 @@ async function downloadMapPNG() {
             );
 
 
-            exportCanvas.toBlob(
-
+            try {
+                exportCanvas.toBlob(
                 png => {
+                    if (!png) {
+                        showExportFailure();
+                        return;
+                    }
+
 
                     const anchor =
                         document.createElement(
@@ -23640,8 +24682,26 @@ async function downloadMapPNG() {
                     );
                 }
             );
+            }
+            catch (error) {
+                console.error(
+                    "Could not export the map:",
+                    error
+                );
+
+                showExportFailure();
+            }
         };
 
+
+    image.onerror =
+        () => {
+            URL.revokeObjectURL(
+                url
+            );
+
+            showExportFailure();
+        };
 
     image.src =
         url;

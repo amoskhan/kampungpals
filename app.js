@@ -23457,12 +23457,545 @@ saveTeacherFeedbackButton.addEventListener(
 );
 
 
+const EXPORT_STYLE_PROPERTIES = [
+    "fill",
+    "fill-opacity",
+    "stroke",
+    "stroke-width",
+    "stroke-opacity",
+    "stroke-dasharray",
+    "stroke-linecap",
+    "stroke-linejoin",
+    "opacity",
+    "font-family",
+    "font-size",
+    "font-weight",
+    "text-anchor",
+    "dominant-baseline",
+    "paint-order",
+    "visibility"
+];
+
+const EXPORT_LEGEND_COLUMNS = 3;
+
+/*
+An exported SVG is drawn as a separate image, so style.css does not reach
+it. Copy the styles each element is showing into the element itself.
+*/
+function copyExportStyles(
+    source,
+    target
+) {
+    const sourceElements = [
+        source,
+        ...source.querySelectorAll("*")
+    ];
+
+    const targetElements = [
+        target,
+        ...target.querySelectorAll("*")
+    ];
+
+    sourceElements.forEach(
+        (element, index) => {
+            if (
+                element.namespaceURI !== SVG_NS
+            ) {
+                return;
+            }
+
+            const computed =
+                getComputedStyle(element);
+
+            const copy =
+                targetElements[index];
+
+            EXPORT_STYLE_PROPERTIES.forEach(
+                property => {
+                    copy.style.setProperty(
+                        property,
+                        computed.getPropertyValue(property)
+                    );
+                }
+            );
+
+            if (
+                computed.display === "none"
+            ) {
+                copy.style.display =
+                    "none";
+            }
+        }
+    );
+}
+
+function wrapExportText(
+    text,
+    maxWidth,
+    font
+) {
+    const context =
+        document
+            .createElement("canvas")
+            .getContext("2d");
+
+    context.font =
+        font;
+
+    const fits =
+        value =>
+            context.measureText(value).width <= maxWidth;
+
+    const lines = [];
+    let line = "";
+
+    String(text || "")
+        .split(/\s+/)
+        .filter(Boolean)
+        .forEach(
+            word => {
+                const joined =
+                    line
+                        ? `${line} ${word}`
+                        : word;
+
+                if (
+                    fits(joined)
+                ) {
+                    line = joined;
+                    return;
+                }
+
+                if (line) {
+                    lines.push(line);
+                }
+
+                line = "";
+
+                [...word].forEach(
+                    character => {
+                        if (
+                            line &&
+                            !fits(line + character)
+                        ) {
+                            lines.push(line);
+                            line = "";
+                        }
+
+                        line += character;
+                    }
+                );
+            }
+        );
+
+    if (line) {
+        lines.push(line);
+    }
+
+    return lines;
+}
+
+function createExportText(
+    lines,
+    x,
+    y,
+    fontSize,
+    {
+        anchor = "start",
+        fill = "#111",
+        fontWeight = "400",
+        halo = false
+    } = {}
+) {
+    const text =
+        document.createElementNS(
+            SVG_NS,
+            "text"
+        );
+
+    text.setAttribute("x", x);
+    text.setAttribute("y", y);
+    text.setAttribute("text-anchor", anchor);
+    text.setAttribute("fill", fill);
+    text.setAttribute("font-family", "Arial, sans-serif");
+    text.setAttribute("font-size", fontSize);
+    text.setAttribute("font-weight", fontWeight);
+
+    if (halo) {
+        text.setAttribute("stroke", "#fff");
+        text.setAttribute("stroke-width", fontSize / 6);
+        text.setAttribute("stroke-linejoin", "round");
+        text.setAttribute("paint-order", "stroke");
+    }
+
+    lines.forEach(
+        (line, index) => {
+            const span =
+                document.createElementNS(
+                    SVG_NS,
+                    "tspan"
+                );
+
+            span.setAttribute("x", x);
+
+            if (index) {
+                span.setAttribute("dy", fontSize * 1.15);
+            }
+
+            span.textContent =
+                line;
+
+            text.appendChild(span);
+        }
+    );
+
+    return text;
+}
+
+/*
+Browsers refuse to export a canvas drawn from an SVG containing
+foreignObject, which is what Landmark labels use on screen. Exports draw
+the same label as SVG text.
+*/
+function replaceExportLabels(
+    svg
+) {
+    svg
+        .querySelectorAll("foreignObject")
+        .forEach(
+            container => {
+                const x =
+                    Number(container.getAttribute("x"));
+                const y =
+                    Number(container.getAttribute("y"));
+                const width =
+                    Number(container.getAttribute("width"));
+                const height =
+                    Number(container.getAttribute("height"));
+
+                const fontSize =
+                    parseFloat(
+                        container.firstElementChild?.style.fontSize
+                    ) || 22;
+
+                const lines =
+                    wrapExportText(
+                        container.textContent,
+                        Math.max(width - 8, fontSize),
+                        `800 ${fontSize}px Arial, sans-serif`
+                    );
+
+                const firstBaseline =
+                    y +
+                    height / 2 -
+                    (lines.length - 1) * fontSize * 1.15 / 2 +
+                    fontSize * .35;
+
+                container.replaceWith(
+                    createExportText(
+                        lines,
+                        x + width / 2,
+                        firstBaseline,
+                        fontSize,
+                        {
+                            anchor: "middle",
+                            fontWeight: "800",
+                            halo: true
+                        }
+                    )
+                );
+            }
+        );
+}
+
+function createExportNorthArrow(
+    x,
+    y
+) {
+    const group =
+        document.createElementNS(
+            SVG_NS,
+            "g"
+        );
+
+    group.setAttribute(
+        "aria-label",
+        "North"
+    );
+
+    const labelColour =
+        getComputedStyle(
+            northArrowInner.querySelector(".north-fixed-label")
+        ).color;
+
+    const colour =
+        getComputedStyle(
+            northArrowInner.querySelector(".north-arrow-symbol")
+        ).color;
+
+    const panel =
+        document.createElementNS(
+            SVG_NS,
+            "rect"
+        );
+
+    panel.setAttribute("x", x);
+    panel.setAttribute("y", y);
+    panel.setAttribute("width", 82);
+    panel.setAttribute("height", 92);
+    panel.setAttribute("rx", 10);
+    panel.setAttribute("fill", "#fff");
+    panel.setAttribute("stroke", "#bbb");
+
+    const shaft =
+        document.createElementNS(
+            SVG_NS,
+            "line"
+        );
+
+    shaft.setAttribute("x1", x + 41);
+    shaft.setAttribute("x2", x + 41);
+    shaft.setAttribute("y1", y + 80);
+    shaft.setAttribute("y2", y + 44);
+    shaft.setAttribute("stroke", colour);
+    shaft.setAttribute("stroke-width", 4);
+
+    const head =
+        document.createElementNS(
+            SVG_NS,
+            "polygon"
+        );
+
+    head.setAttribute(
+        "points",
+        `${x + 41},${y + 32} ${x + 51},${y + 50} ${x + 31},${y + 50}`
+    );
+
+    head.setAttribute("fill", colour);
+
+    group.append(
+        panel,
+        createExportText(
+            ["N"],
+            x + 41,
+            y + 25,
+            20,
+            {
+                anchor: "middle",
+                fill: labelColour,
+                fontWeight: "800"
+            }
+        ),
+        shaft,
+        head
+    );
+
+    return group;
+}
+
+/*
+Builds the Legend panel from the Legend on screen, so the export always
+lists what the student sees. Returns null when the map has nothing to list.
+*/
+function createExportLegend(
+    top,
+    width
+) {
+    const items =
+        [...legendList.querySelectorAll(".legend-item")];
+
+    if (!items.length) {
+        return null;
+    }
+
+    const group =
+        document.createElementNS(
+            SVG_NS,
+            "g"
+        );
+
+    const padding = 32;
+    const previewWidth = 62;
+    const previewHeight = 48;
+    const gap = 16;
+
+    const columnWidth =
+        (width - padding * 2) /
+        EXPORT_LEGEND_COLUMNS;
+
+    const textWidth =
+        columnWidth -
+        previewWidth -
+        gap * 2;
+
+    let y =
+        top + 44;
+
+    group.appendChild(
+        createExportText(
+            ["Legend"],
+            padding,
+            y,
+            30,
+            {
+                fontWeight: "800"
+            }
+        )
+    );
+
+    y += 20;
+
+    const appendRows =
+        rowItems => {
+            for (
+                let start = 0;
+                start < rowItems.length;
+                start += EXPORT_LEGEND_COLUMNS
+            ) {
+                let rowHeight =
+                    previewHeight;
+
+                rowItems
+                    .slice(start, start + EXPORT_LEGEND_COLUMNS)
+                    .forEach(
+                        (item, column) => {
+                            const x =
+                                padding +
+                                column * columnWidth;
+
+                            const preview =
+                                item.querySelector(".legend-preview");
+
+                            if (preview) {
+                                const copy =
+                                    preview.cloneNode(true);
+
+                                copyExportStyles(
+                                    preview,
+                                    copy
+                                );
+
+                                replaceExportLabels(copy);
+
+                                copy.removeAttribute("class");
+                                copy.setAttribute("x", x);
+                                copy.setAttribute("y", y);
+                                copy.setAttribute("width", previewWidth);
+                                copy.setAttribute("height", previewHeight);
+
+                                group.appendChild(copy);
+                            }
+
+                            const nameLines =
+                                wrapExportText(
+                                    item.querySelector(".legend-object-name")?.textContent,
+                                    textWidth,
+                                    "700 22px Arial, sans-serif"
+                                );
+
+                            const categoryLines =
+                                wrapExportText(
+                                    item.querySelector(".legend-category")?.textContent,
+                                    textWidth,
+                                    "17px Arial, sans-serif"
+                                );
+
+                            const textX =
+                                x + previewWidth + gap;
+
+                            group.appendChild(
+                                createExportText(
+                                    nameLines,
+                                    textX,
+                                    y + 20,
+                                    22,
+                                    {
+                                        fontWeight: "700"
+                                    }
+                                )
+                            );
+
+                            const categoryY =
+                                y + 20 +
+                                nameLines.length * 22 * 1.15;
+
+                            group.appendChild(
+                                createExportText(
+                                    categoryLines,
+                                    textX,
+                                    categoryY,
+                                    17,
+                                    {
+                                        fill: "#555"
+                                    }
+                                )
+                            );
+
+                            rowHeight =
+                                Math.max(
+                                    rowHeight,
+                                    categoryY - y +
+                                    categoryLines.length * 17 * 1.15
+                                );
+                        }
+                    );
+
+                y += rowHeight + gap;
+            }
+        };
+
+    const hazardItems =
+        items.filter(
+            item =>
+                item.closest(".legend-hazards")
+        );
+
+    appendRows(
+        items.filter(
+            item =>
+                !hazardItems.includes(item)
+        )
+    );
+
+    if (hazardItems.length) {
+        y += 22;
+
+        group.appendChild(
+            createExportText(
+                ["Hazards"],
+                padding,
+                y,
+                24,
+                {
+                    fontWeight: "800",
+                    fill: HAZARD_RED
+                }
+            )
+        );
+
+        y += 14;
+
+        appendRows(hazardItems);
+    }
+
+    return {
+        group,
+        height:
+            y - top + padding / 2
+    };
+}
+
 function buildExportSvg() {
 
     const clone =
         canvas.cloneNode(
             true
         );
+
+    copyExportStyles(
+        canvas,
+        clone
+    );
 
 
     clone
@@ -23501,30 +24034,76 @@ function buildExportSvg() {
     }
 
 
-    clone.setAttribute(
-        "xmlns",
-        SVG_NS
+    replaceExportLabels(
+        clone
     );
-
 
     clone.setAttribute(
         "width",
         CANVAS_WIDTH
     );
 
-
     clone.setAttribute(
         "height",
         CANVAS_HEIGHT
     );
 
+    const legend =
+        createExportLegend(
+            CANVAS_HEIGHT,
+            CANVAS_WIDTH
+        );
+
+    const totalHeight =
+        CANVAS_HEIGHT +
+        (legend?.height || 0);
+
+    const page =
+        document.createElementNS(
+            SVG_NS,
+            "svg"
+        );
+
+    page.setAttribute(
+        "viewBox",
+        `0 0 ${CANVAS_WIDTH} ${totalHeight}`
+    );
+
+    page.setAttribute(
+        "width",
+        CANVAS_WIDTH
+    );
+
+    page.setAttribute(
+        "height",
+        totalHeight
+    );
+
+    page.append(
+        clone,
+        createExportNorthArrow(
+            CANVAS_WIDTH - 94,
+            12
+        )
+    );
+
+    if (legend) {
+        page.appendChild(
+            legend.group
+        );
+    }
 
     return new XMLSerializer()
         .serializeToString(
-            clone
+            page
         );
 }
 
+
+function showExportFailure() {
+    statusBar.textContent =
+        "Could not download the map. Please try again.";
+}
 
 async function downloadMapPNG() {
 
@@ -23564,11 +24143,10 @@ async function downloadMapPNG() {
 
 
             exportCanvas.width =
-                CANVAS_WIDTH;
-
+                image.naturalWidth;
 
             exportCanvas.height =
-                CANVAS_HEIGHT;
+                image.naturalHeight;
 
 
             const context =
@@ -23601,9 +24179,14 @@ async function downloadMapPNG() {
             );
 
 
-            exportCanvas.toBlob(
-
+            try {
+                exportCanvas.toBlob(
                 png => {
+                    if (!png) {
+                        showExportFailure();
+                        return;
+                    }
+
 
                     const anchor =
                         document.createElement(
@@ -23640,8 +24223,26 @@ async function downloadMapPNG() {
                     );
                 }
             );
+            }
+            catch (error) {
+                console.error(
+                    "Could not export the map:",
+                    error
+                );
+
+                showExportFailure();
+            }
         };
 
+
+    image.onerror =
+        () => {
+            URL.revokeObjectURL(
+                url
+            );
+
+            showExportFailure();
+        };
 
     image.src =
         url;

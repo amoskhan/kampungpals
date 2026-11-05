@@ -1,6 +1,6 @@
 (() => {
     /*
-     * OE Map Maker — focused UX + review enhancements
+     * Kampung Pals — focused UX + review enhancements
      * Loaded AFTER app.js.
      *
      * Adds:

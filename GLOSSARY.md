@@ -1,4 +1,4 @@
-# Outdoor Education Map Maker
+# Kampung Pals
 
 A tool for Outdoor Education lessons in which students build abstract maps of a real site and teachers review them.
 
@@ -95,7 +95,7 @@ A bright red warning symbol (⚠) placed at one spot on the map to mark a potent
 _Avoid_: Danger, risk, warning, Landmark (a Hazard is not a kind of Landmark)
 
 **North Arrow**:
-The arrow a student rotates to show which way is north on their map.
+The arrow on every map showing that north is straight up. It is fixed, and nobody can rotate it.
 _Avoid_: Compass
 
 **Legend**:
@@ -105,7 +105,7 @@ _Avoid_: Key
 ### Teacher feedback
 
 **Gallery**:
-A page, for Teachers only, showing every Project for one Task side by side as small maps, each labelled with its Group or student name, Class and state. It changes as students draw, so a Teacher can see the whole lesson's work at a glance. Students never see the Gallery.
+A page, for Teachers only, showing the latest Project from each student or Group for one Task side by side as small maps, each labelled with its Group or student name, Class and state. It changes as students draw, so a Teacher can see the whole lesson's work at a glance. Students never see the Gallery.
 _Avoid_: Overview, grid, wall, thumbnails, review all
 
 **Review**:
@@ -115,6 +115,10 @@ _Avoid_: Marking, comments, annotation, submitting (for teachers)
 **Marked**:
 The state of a Project once a teacher has saved a Review for it. A Marked Project is final: students can read the Review but change nothing. There is no hidden draft Review.
 _Avoid_: Graded, checked, returned
+
+**Revised Map**:
+A separate Project that lets a student or Group redo their work after it is Marked, using the Teacher's Review. The Marked Project and its Review stay exactly as they were. Any student with a Marked Project can start it without asking the Teacher. A Project can have only one, and it cannot have one of its own. It is Submitted and Marked on its own.
+_Avoid_: Corrected Work, Corrections, resubmission, redo, Submission 2
 
 ### Improving the app
 

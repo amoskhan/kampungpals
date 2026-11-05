@@ -6,7 +6,7 @@ Never put the secret key or anyone's email address in this repo: it is public. T
 
 ## A. The Apps Script (signed in as the app's shared Gmail account)
 
-1. Go to <https://script.google.com> → **New project**. Name it "OE Map Maker App Feedback emails".
+1. Go to <https://script.google.com> → **New project**. Name it "Kampung Pals App Feedback emails".
 2. Replace everything in `Code.gs` with the contents of `tools/app-feedback-email.gs`. Save.
 3. **Project Settings** (gear icon) → **Script Properties** → add two properties, then **Save**:
    - `WEBHOOK_KEY`: a long random secret, letters and numbers only, at least 40 characters (use a password generator). Keep a copy: part B needs it.
@@ -32,7 +32,7 @@ Never put the secret key or anyone's email address in this repo: it is public. T
 
 Send App Feedback from the live site as a Teacher. Within a minute:
 
-- the Teacher's inbox has "We got your App Feedback" from **OE Map Maker**;
+- the Teacher's inbox has "We got your App Feedback" from **Kampung Pals**;
 - every `ALERT_TO` address has "New App Feedback from <name>"; pressing Reply answers the Teacher.
 
 If nothing arrives:

@@ -12,7 +12,7 @@ Settings live in Project Settings → Script Properties, never here
   ALERT_TO      the group's addresses, comma-separated
 ========================================================= */
 
-const SENDER_NAME = "OE Map Maker";
+const SENDER_NAME = "Kampung Pals";
 
 
 function doPost(e) {
@@ -70,7 +70,7 @@ function sendReceipt(feedback) {
     body: [
       `Hi ${feedback.teacher_name || "there"},`,
       "",
-      "Thanks for your App Feedback on OE Map Maker. This is what you sent:",
+      "Thanks for your App Feedback on Kampung Pals. This is what you sent:",
       "",
       quote(feedback.message),
       "",
@@ -78,7 +78,7 @@ function sendReceipt(feedback) {
       "",
       "Reply to this email if you want to add anything.",
       "",
-      "The OE Map Maker team"
+      "The Kampung Pals team"
     ].join("\n")
   });
 }

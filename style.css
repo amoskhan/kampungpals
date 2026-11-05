@@ -8745,6 +8745,7 @@ border-color:var(--forest);
 
 /* Shapes of the student's map area, measured on each device. */
 figure[data-device="iphone"] .reference-preview-frame { aspect-ratio:370 / 514; }
+figure[data-device="iphone-sideways"] .reference-preview-frame { aspect-ratio:810 / 514; }
 figure[data-device="ipad-upright"] .reference-preview-frame { aspect-ratio:786 / 514; }
 figure[data-device="ipad-sideways"] .reference-preview-frame { aspect-ratio:1146 / 480; }
 figure[data-device="computer"] .reference-preview-frame { aspect-ratio:1332 / 558; }
@@ -8760,9 +8761,95 @@ background:#fff;
 }
 
 .reference-preview-large[data-device="iphone"] { width:min(320px,100%); aspect-ratio:370 / 514; }
+.reference-preview-large[data-device="iphone-sideways"] { width:min(620px,100%); aspect-ratio:810 / 514; }
 .reference-preview-large[data-device="ipad-upright"] { width:min(620px,100%); aspect-ratio:786 / 514; }
 .reference-preview-large[data-device="ipad-sideways"] { width:min(820px,100%); aspect-ratio:1146 / 480; }
 .reference-preview-large[data-device="computer"] { width:min(820px,100%); aspect-ratio:1332 / 558; }
+
+.reference-preview-large.is-croppable {
+cursor:grab;
+touch-action:none;
+user-select:none;
+}
+
+.reference-preview-large.is-dragging {
+cursor:grabbing;
+}
+
+.reference-crop-status {
+display:block;
+margin-top:2px;
+color:var(--muted);
+font-size:11px;
+text-align:center;
+}
+
+.reference-crop-status[hidden] {
+display:none;
+}
+
+.reference-crop-status.is-adjusted {
+color:var(--forest-dark);
+font-weight:700;
+}
+
+.reference-crop-tools {
+display:flex;
+flex-wrap:wrap;
+align-items:center;
+gap:10px 18px;
+margin-top:12px;
+}
+
+.reference-crop-tools[hidden] {
+display:none;
+}
+
+.reference-crop-tools p {
+flex:1 1 100%;
+margin:0;
+color:var(--muted);
+font-size:13px;
+}
+
+.reference-crop-zoom {
+display:flex;
+align-items:center;
+gap:10px;
+margin:0;
+font-size:13px;
+font-weight:700;
+}
+
+.reference-crop-zoom input {
+width:min(260px,55vw);
+padding:0;
+accent-color:var(--forest);
+}
+
+.reference-crop-reset {
+width:auto;
+min-height:36px;
+padding:6px 14px;
+border:1px solid var(--line);
+border-radius:8px;
+background:#fff;
+color:inherit;
+font-weight:700;
+cursor:pointer;
+}
+
+.reference-unsaved {
+display:inline-block;
+margin:16px 0 0 12px;
+color:#9a5b12;
+font-size:13px;
+font-weight:700;
+}
+
+.reference-unsaved[hidden] {
+display:none;
+}
 
 .reference-preview-frame img,
 .reference-preview-large img {

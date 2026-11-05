@@ -47,11 +47,11 @@ An image of the real site that students can see only while holding a button, for
 _Avoid_: Base map, answer map
 
 **Reference Preview**:
-A view, for Teachers only, of how a Reference Map fills the student’s map area on a phone, an iPad or a computer.
+A view, for Teachers only, of how a Reference Map fills the student’s map area on an iPhone or an iPad, each upright or sideways, and on a computer.
 _Avoid_: Device preview
 
 **Reference Fit**:
-How a Reference Map fills the student’s map area for one Task: stretched, keeping its shape, or cropped. The Teacher chooses it, and it applies on every device.
+How a Reference Map fills the student’s map area for one Task: stretched, keeping its shape, or cropped. The Teacher chooses it for the whole Task, and when it is cropped can adjust the crop separately for an iPhone and an iPad, each upright or sideways, and for a computer. Any other device uses the crop closest to its shape.
 _Avoid_: Scaling, zoom
 
 ### Student work

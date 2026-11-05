@@ -11,7 +11,7 @@ href="assets/logo.svg"
 >
 <link
 rel="stylesheet"
-href="style.css?v=20261105c"
+href="style.css?v=20261105f"
 >
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -1447,32 +1447,51 @@ This is how students see the Reference Map. Tap a device to enlarge it, then pre
 </p>
 <div class="reference-preview-grid">
 <figure data-device="iphone" class="reference-preview-device">
-<button type="button" class="reference-preview-pick" aria-pressed="false" aria-label="Enlarge iPhone">
-<span class="reference-preview-frame"><img alt="Reference Map on an iPhone"></span>
+<button type="button" class="reference-preview-pick" aria-pressed="false" aria-label="Enlarge iPhone upright">
+<span class="reference-preview-frame"><img alt="Reference Map on an upright iPhone"></span>
 </button>
-<figcaption>iPhone</figcaption>
+<figcaption>iPhone upright</figcaption>
+<span class="reference-crop-status" hidden></span>
+</figure>
+<figure data-device="iphone-sideways" class="reference-preview-device">
+<button type="button" class="reference-preview-pick" aria-pressed="false" aria-label="Enlarge iPhone sideways">
+<span class="reference-preview-frame"><img alt="Reference Map on a sideways iPhone"></span>
+</button>
+<figcaption>iPhone sideways</figcaption>
+<span class="reference-crop-status" hidden></span>
 </figure>
 <figure data-device="ipad-upright" class="reference-preview-device">
 <button type="button" class="reference-preview-pick" aria-pressed="false" aria-label="Enlarge iPad upright">
 <span class="reference-preview-frame"><img alt="Reference Map on an upright iPad"></span>
 </button>
 <figcaption>iPad upright</figcaption>
+<span class="reference-crop-status" hidden></span>
 </figure>
 <figure data-device="ipad-sideways" class="reference-preview-device">
 <button type="button" class="reference-preview-pick" aria-pressed="false" aria-label="Enlarge iPad sideways">
 <span class="reference-preview-frame"><img alt="Reference Map on a sideways iPad"></span>
 </button>
 <figcaption>iPad sideways</figcaption>
+<span class="reference-crop-status" hidden></span>
 </figure>
 <figure data-device="computer" class="reference-preview-device is-selected">
 <button type="button" class="reference-preview-pick" aria-pressed="true" aria-label="Enlarge Computer">
 <span class="reference-preview-frame"><img alt="Reference Map on a computer"></span>
 </button>
 <figcaption>Computer</figcaption>
+<span class="reference-crop-status" hidden></span>
 </figure>
 </div>
 <div class="reference-preview-large" data-device="computer">
-<img alt="Enlarged view of the Reference Map">
+<img alt="Enlarged view of the Reference Map" draggable="false">
+</div>
+<div id="referenceCropTools" class="reference-crop-tools" hidden>
+<p>Drag the image to choose what students see on this device.</p>
+<label class="reference-crop-zoom">
+Zoom
+<input id="referenceCropZoom" type="range" min="1" max="4" step="0.05" value="1">
+</label>
+<button id="referenceCropReset" class="reference-crop-reset" type="button">Reset</button>
 </div>
 </div>
 </div>
@@ -1484,6 +1503,7 @@ type="button"
 >
 Save Task Settings
 </button>
+<span id="referenceUnsaved" class="reference-unsaved" hidden>Unsaved changes</span>
 
 <div class="submission-section">
 
@@ -2692,10 +2712,11 @@ Save
 </div>
 
 <!-- Change ?v= on these files whenever they change, so browsers stop using old copies. -->
-<script src="project-access.js?v=20261105b"></script>
-<script src="app.js?v=20261105b"></script>
-<script src="map-improvements.js?v=20261105b"></script>
-<script src="corrections-improvements.js?v=20261105b"></script>
-<script src="tutorial-improvements.js?v=20261105b"></script>
+<script src="project-access.js?v=20261105f"></script>
+<script src="reference-fit.js?v=20261105f"></script>
+<script src="app.js?v=20261105f"></script>
+<script src="map-improvements.js?v=20261105f"></script>
+<script src="corrections-improvements.js?v=20261105f"></script>
+<script src="tutorial-improvements.js?v=20261105f"></script>
 </body>
 </html>

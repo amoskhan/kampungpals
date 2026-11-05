@@ -1,3 +1,42 @@
+/*
+crypto.randomUUID only exists on secure pages in newer browsers, so an older
+iPad, or a test over a local network address, would otherwise crash at startup.
+*/
+function createUuid() {
+    if (
+        typeof crypto.randomUUID === "function"
+    ) {
+        return crypto.randomUUID();
+    }
+
+    const bytes =
+        crypto.getRandomValues(
+            new Uint8Array(16)
+        );
+
+    // Mark it as a version 4 UUID, the format crypto.randomUUID produces.
+    bytes[6] =
+        (bytes[6] & 0x0f) | 0x40;
+
+    bytes[8] =
+        (bytes[8] & 0x3f) | 0x80;
+
+    const hex =
+        Array.from(
+            bytes,
+            byte =>
+                byte.toString(16).padStart(2, "0")
+        ).join("");
+
+    return [
+        hex.slice(0, 8),
+        hex.slice(8, 12),
+        hex.slice(12, 16),
+        hex.slice(16, 20),
+        hex.slice(20)
+    ].join("-");
+}
+
 const SVG_NS = "http://www.w3.org/2000/svg";
 const HTML_NS = "http://www.w3.org/1999/xhtml";
 
@@ -26,7 +65,7 @@ function getOrCreateEditorToken() {
     if (!token) {
 
         token =
-            crypto.randomUUID();
+            createUuid();
 
         sessionStorage.setItem(
             EDITOR_TOKEN_STORAGE_KEY,
@@ -109,21 +148,6 @@ const DEFAULT_ALLOWED_TOOLS = {
     // Tasks saved before Reference Fit existed have none, so they stay stretched.
     reference_fit: "stretch"
 };
-
-const REFERENCE_FIT_STYLES = {
-    stretch: "fill",
-    keep: "contain",
-    crop: "cover"
-};
-
-function referenceObjectFit(
-    fit
-) {
-    return (
-        REFERENCE_FIT_STYLES[fit] ||
-        REFERENCE_FIT_STYLES.stretch
-    );
-}
 
 
 const $ =
@@ -3088,6 +3112,38 @@ async function getSignedReferenceUrl(
 }
 
 
+/*
+Worked out from the map area each time, so turning a device mid-lesson uses the
+crop for its new shape.
+*/
+function applyReferenceOverlayFit() {
+    const tools =
+        currentTask?.allowed_tools;
+
+    const style =
+        referenceImageStyle(
+            tools?.reference_fit,
+            tools?.reference_crops?.[
+                referenceDeviceForMap(
+                    canvasWrap.clientWidth,
+                    canvasWrap.clientHeight,
+                    window.innerHeight
+                )
+            ]
+        );
+
+    Object.assign(
+        referenceOverlay.style,
+        style
+    );
+
+    // Keep shape leaves bars around the image, which should not show the map.
+    referenceOverlay.style.backgroundColor =
+        style.objectFit === "contain"
+            ? "#fff"
+            : "";
+}
+
 async function loadCurrentTaskReference() {
 
     currentReferenceUrl =
@@ -3102,19 +3158,7 @@ async function loadCurrentTaskReference() {
         "src"
     );
 
-    const objectFit =
-        referenceObjectFit(
-            currentTask?.allowed_tools?.reference_fit
-        );
-
-    referenceOverlay.style.objectFit =
-        objectFit;
-
-    // Keep shape leaves bars around the image, which should not show the map.
-    referenceOverlay.style.backgroundColor =
-        objectFit === "contain"
-            ? "#fff"
-            : "";
+    applyReferenceOverlayFit();
 
     if (
         !currentTask?.reference_path
@@ -3164,6 +3208,7 @@ function showReferenceOverlay() {
     referenceHoldActive =
         true;
 
+    applyReferenceOverlayFit();
 
     referenceOverlay.hidden =
         false;
@@ -16866,7 +16911,7 @@ async function sendAppFeedback() {
     try {
 
         const feedbackId =
-            crypto.randomUUID();
+            createUuid();
 
 
         const context =
@@ -20066,7 +20111,8 @@ async function selectTeacherTask(
 
 
     setReferenceFitChoice(
-        tools.reference_fit
+        tools.reference_fit,
+        tools.reference_crops
     );
 
     clearTeacherReferencePreview();
@@ -20153,6 +20199,9 @@ saveTaskSettingsButton.addEventListener(
 
     allowed.reference_fit =
         selectedReferenceFit();
+
+    allowed.reference_crops =
+        referenceCropsToSave();
 
 
         const selectedClassIds =
@@ -20296,6 +20345,8 @@ saveTaskSettingsButton.addEventListener(
 
             selectedTeacherTask =
                 data;
+
+            updateReferenceUnsaved();
 
 
             teacherTaskHeading.textContent =
@@ -20706,6 +20757,29 @@ deleteTaskButton.addEventListener(
 );
 
 
+let referenceCrops = {};
+
+let referencePreviewDevice =
+    "computer";
+
+const referencePreviewDevices =
+    [...teacherReferencePreview.querySelectorAll(".reference-preview-device")];
+
+const referencePreviewLarge =
+    teacherReferencePreview.querySelector(".reference-preview-large");
+
+const referenceCropTools =
+    $("referenceCropTools");
+
+const referenceCropZoom =
+    $("referenceCropZoom");
+
+const referenceCropReset =
+    $("referenceCropReset");
+
+const referenceUnsaved =
+    $("referenceUnsaved");
+
 function selectedReferenceFit() {
     return (
         document.querySelector(
@@ -20715,24 +20789,163 @@ function selectedReferenceFit() {
     );
 }
 
-function applyReferencePreviewFit() {
-    const objectFit =
-        referenceObjectFit(
-            selectedReferenceFit()
-        );
+function referenceCropsToSave() {
+    const saved = {};
 
-    teacherReferencePreview
-        .querySelectorAll("img")
-        .forEach(
-            image => {
-                image.style.objectFit =
-                    objectFit;
+    REFERENCE_DEVICES.forEach(
+        ({ key }) => {
+            if (
+                isReferenceCropAdjusted(
+                    referenceCrops[key]
+                )
+            ) {
+                saved[key] =
+                    normaliseReferenceCrop(
+                        referenceCrops[key]
+                    );
             }
+        }
+    );
+
+    return saved;
+}
+
+function toolsWithoutReferenceCrops() {
+    return {
+        ...(
+            selectedTeacherTask?.allowed_tools ||
+            {}
+        ),
+        reference_crops: {}
+    };
+}
+
+function referenceSettingsSignature(
+    fit,
+    crops
+) {
+    return JSON.stringify([
+        fit,
+        REFERENCE_DEVICES.map(
+            ({ key }) =>
+                isReferenceCropAdjusted(crops?.[key])
+                    ? normaliseReferenceCrop(crops[key])
+                    : null
+        )
+    ]);
+}
+
+function updateReferenceUnsaved() {
+    const tools = {
+        ...DEFAULT_ALLOWED_TOOLS,
+        ...(
+            selectedTeacherTask?.allowed_tools ||
+            {}
+        )
+    };
+
+    referenceUnsaved.hidden =
+        teacherReferencePreview.hidden ||
+        referenceSettingsSignature(
+            selectedReferenceFit(),
+            referenceCrops
+        ) ===
+        referenceSettingsSignature(
+            REFERENCE_FIT_STYLES[tools.reference_fit]
+                ? tools.reference_fit
+                : DEFAULT_ALLOWED_TOOLS.reference_fit,
+            tools.reference_crops
         );
 }
 
+function applyReferencePreviewFit() {
+    const fit =
+        selectedReferenceFit();
+
+    const cropping =
+        fit === "crop";
+
+    referencePreviewDevices.forEach(
+        device => {
+            const key =
+                device.dataset.device;
+
+            const selected =
+                key === referencePreviewDevice;
+
+            device.classList.toggle(
+                "is-selected",
+                selected
+            );
+
+            device
+                .querySelector("button")
+                .setAttribute(
+                    "aria-pressed",
+                    selected
+                );
+
+            Object.assign(
+                device.querySelector("img").style,
+                referenceImageStyle(
+                    fit,
+                    referenceCrops[key]
+                )
+            );
+
+            const adjusted =
+                isReferenceCropAdjusted(
+                    referenceCrops[key]
+                );
+
+            const status =
+                device.querySelector(".reference-crop-status");
+
+            status.hidden =
+                !cropping;
+
+            status.textContent =
+                adjusted
+                    ? "Adjusted"
+                    : "Not adjusted";
+
+            status.classList.toggle(
+                "is-adjusted",
+                adjusted
+            );
+        }
+    );
+
+    referencePreviewLarge.dataset.device =
+        referencePreviewDevice;
+
+    referencePreviewLarge.classList.toggle(
+        "is-croppable",
+        cropping
+    );
+
+    Object.assign(
+        referencePreviewLarge.querySelector("img").style,
+        referenceImageStyle(
+            fit,
+            referenceCrops[referencePreviewDevice]
+        )
+    );
+
+    referenceCropTools.hidden =
+        !cropping;
+
+    referenceCropZoom.value =
+        normaliseReferenceCrop(
+            referenceCrops[referencePreviewDevice]
+        ).zoom;
+
+    updateReferenceUnsaved();
+}
+
 function setReferenceFitChoice(
-    fit
+    fit,
+    crops
 ) {
     const choice =
         REFERENCE_FIT_STYLES[fit]
@@ -20744,6 +20957,10 @@ function setReferenceFitChoice(
             `input[name="referenceFit"][value="${choice}"]`
         )
         .checked = true;
+
+    referenceCrops = {
+        ...(crops || {})
+    };
 
     applyReferencePreviewFit();
 }
@@ -20759,14 +20976,17 @@ function showTeacherReferencePreview(
             }
         );
 
-    applyReferencePreviewFit();
-
     teacherReferencePreview.hidden =
         false;
+
+    applyReferencePreviewFit();
 }
 
 function clearTeacherReferencePreview() {
     teacherReferencePreview.hidden =
+        true;
+
+    referenceUnsaved.hidden =
         true;
 
     teacherReferencePreview
@@ -20791,42 +21011,129 @@ document
         }
     );
 
-teacherReferencePreview
-    .querySelectorAll(".reference-preview-device")
-    .forEach(
-        (device, index, devices) => {
-            device
-                .querySelector("button")
-                .addEventListener(
-                    "click",
-                    () => {
-                        devices.forEach(
-                            other => {
-                                const selected =
-                                    other === device;
+referencePreviewDevices.forEach(
+    device => {
+        device
+            .querySelector("button")
+            .addEventListener(
+                "click",
+                () => {
+                    referencePreviewDevice =
+                        device.dataset.device;
 
-                                other.classList.toggle(
-                                    "is-selected",
-                                    selected
-                                );
+                    applyReferencePreviewFit();
+                }
+            );
+    }
+);
 
-                                other
-                                    .querySelector("button")
-                                    .setAttribute(
-                                        "aria-pressed",
-                                        selected
-                                    );
-                            }
-                        );
+let referenceCropDrag = null;
 
-                        teacherReferencePreview
-                            .querySelector(".reference-preview-large")
-                            .dataset.device =
-                            device.dataset.device;
-                    }
-                );
+referencePreviewLarge.addEventListener(
+    "pointerdown",
+    event => {
+        if (
+            selectedReferenceFit() !== "crop"
+        ) {
+            return;
         }
-    );
+
+        event.preventDefault();
+
+        referencePreviewLarge.setPointerCapture(
+            event.pointerId
+        );
+
+        referencePreviewLarge.classList.add(
+            "is-dragging"
+        );
+
+        referenceCropDrag = {
+            pointerId: event.pointerId,
+            x: event.clientX,
+            y: event.clientY
+        };
+    }
+);
+
+referencePreviewLarge.addEventListener(
+    "pointermove",
+    event => {
+        if (
+            referenceCropDrag?.pointerId !== event.pointerId
+        ) {
+            return;
+        }
+
+        const image =
+            referencePreviewLarge.querySelector("img");
+
+        referenceCrops[referencePreviewDevice] =
+            dragReferenceCrop({
+                crop:
+                    referenceCrops[referencePreviewDevice],
+                dx:
+                    event.clientX - referenceCropDrag.x,
+                dy:
+                    event.clientY - referenceCropDrag.y,
+                frameWidth:
+                    referencePreviewLarge.clientWidth,
+                frameHeight:
+                    referencePreviewLarge.clientHeight,
+                imageWidth:
+                    image.naturalWidth,
+                imageHeight:
+                    image.naturalHeight
+            });
+
+        referenceCropDrag.x =
+            event.clientX;
+
+        referenceCropDrag.y =
+            event.clientY;
+
+        applyReferencePreviewFit();
+    }
+);
+
+["pointerup", "pointercancel"].forEach(
+    type => {
+        referencePreviewLarge.addEventListener(
+            type,
+            () => {
+                referenceCropDrag = null;
+
+                referencePreviewLarge.classList.remove(
+                    "is-dragging"
+                );
+            }
+        );
+    }
+);
+
+referenceCropZoom.addEventListener(
+    "input",
+    () => {
+        referenceCrops[referencePreviewDevice] = {
+            ...normaliseReferenceCrop(
+                referenceCrops[referencePreviewDevice]
+            ),
+            zoom:
+                Number(referenceCropZoom.value)
+        };
+
+        applyReferencePreviewFit();
+    }
+);
+
+referenceCropReset.addEventListener(
+    "click",
+    () => {
+        delete referenceCrops[referencePreviewDevice];
+
+        applyReferencePreviewFit();
+    }
+);
 
 teacherReferenceFile.addEventListener(
 
@@ -20917,7 +21224,9 @@ teacherReferenceFile.addEventListener(
                     "tasks"
                 )
                 .update({
-                    reference_path: path
+                    reference_path: path,
+                    allowed_tools:
+                        toolsWithoutReferenceCrops()
                 })
                 .eq(
                     "id",
@@ -21003,7 +21312,9 @@ removeReferenceButton.addEventListener(
                     "tasks"
                 )
                 .update({
-                    reference_path: null
+                    reference_path: null,
+                    allowed_tools:
+                        toolsWithoutReferenceCrops()
                 })
                 .eq(
                     "id",

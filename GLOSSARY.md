@@ -46,6 +46,14 @@ _Avoid_: Visitor, temporary student
 An image of the real site that students can see only while holding a button, for comparison with their own map.
 _Avoid_: Base map, answer map
 
+**Reference Preview**:
+A view, for Teachers only, of how a Reference Map fills the student’s map area on a phone, an iPad or a computer.
+_Avoid_: Device preview
+
+**Reference Fit**:
+How a Reference Map fills the student’s map area for one Task: stretched, keeping its shape, or cropped. The Teacher chooses it, and it applies on every device.
+_Avoid_: Scaling, zoom
+
 ### Student work
 
 **Project**:

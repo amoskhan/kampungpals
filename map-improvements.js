@@ -8,8 +8,7 @@
      * 2) context-sensitive edit actions
      * 3) extend + resize for paths and roads
      * 4) internal map copy/paste + Ctrl/Cmd+C, Ctrl/Cmd+V, Ctrl/Cmd+D
-     * 5) teacher reference preview for Phone / iPad / Computer
-     * 6) point-specific teacher comments stored in teacher_annotations
+     * 5) point-specific teacher comments stored in teacher_annotations
      *
      * No Supabase schema migration is required.
      */
@@ -452,115 +451,6 @@
             color:#fff;
         }
 
-        /* Teacher reference device preview */
-        .${ENHANCE_PREFIX}-reference-panel {
-            position:absolute;
-            z-index:44;
-            right:12px;
-            bottom:58px;
-            width:min(760px,calc(100% - 24px));
-            max-height:calc(100% - 78px);
-            overflow:auto;
-            padding:12px;
-            border:1px solid rgba(0,0,0,.18);
-            border-radius:12px;
-            background:rgba(255,253,248,.98);
-            box-shadow:0 10px 30px rgba(0,0,0,.22);
-            backdrop-filter:blur(7px);
-        }
-
-        .${ENHANCE_PREFIX}-reference-head {
-            display:flex;
-            align-items:flex-start;
-            justify-content:space-between;
-            gap:12px;
-            margin-bottom:9px;
-        }
-
-        .${ENHANCE_PREFIX}-reference-head strong {
-            display:block;
-            font-size:14px;
-        }
-
-        .${ENHANCE_PREFIX}-reference-head span {
-            display:block;
-            margin-top:2px;
-            color:var(--muted);
-            font-size:11px;
-        }
-
-        .${ENHANCE_PREFIX}-reference-close {
-            width:30px;
-            height:30px;
-            border:0;
-            border-radius:7px;
-            background:#eeeae1;
-            font-size:20px;
-            cursor:pointer;
-        }
-
-        .${ENHANCE_PREFIX}-device-tabs {
-            display:flex;
-            gap:6px;
-            margin-bottom:10px;
-        }
-
-        .${ENHANCE_PREFIX}-device-tabs button {
-            min-height:34px;
-            padding:6px 10px;
-            border:1px solid #c8c7c0;
-            border-radius:7px;
-            background:#fff;
-            font:inherit;
-            font-size:12px;
-            font-weight:800;
-            cursor:pointer;
-        }
-
-        .${ENHANCE_PREFIX}-device-tabs button.active {
-            border-color:var(--forest);
-            background:#edf4ee;
-            color:var(--forest-dark);
-        }
-
-        .${ENHANCE_PREFIX}-device-note {
-            margin:0 0 7px;
-            color:var(--muted);
-            font-size:11px;
-            font-weight:750;
-        }
-
-        .${ENHANCE_PREFIX}-device-frame {
-            margin:0 auto;
-            overflow:hidden;
-            border:4px solid #343936;
-            border-radius:12px;
-            background:#fff;
-            transition:max-width .18s ease,aspect-ratio .18s ease;
-        }
-
-        .${ENHANCE_PREFIX}-device-frame[data-device="phone"] {
-            max-width:390px;
-            aspect-ratio:390 / 520;
-        }
-
-        .${ENHANCE_PREFIX}-device-frame[data-device="tablet"] {
-            max-width:820px;
-            aspect-ratio:820 / 520;
-        }
-
-        .${ENHANCE_PREFIX}-device-frame[data-device="desktop"] {
-            max-width:100%;
-            aspect-ratio:1600 / 675;
-        }
-
-        .${ENHANCE_PREFIX}-device-frame img {
-            display:block;
-            width:100%;
-            height:100%;
-            object-fit:fill;
-        }
-
         /* Student point-comment list */
         .${ENHANCE_PREFIX}-student-comments {
             margin-top:10px;
@@ -637,14 +527,6 @@
                 left:61px;
                 bottom:52px;
                 width:min(270px,calc(100% - 68px));
-            }
-
-            .${ENHANCE_PREFIX}-reference-panel {
-                left:7px;
-                right:7px;
-                bottom:56px;
-                width:auto;
-                max-height:calc(100% - 68px);
             }
 
             #teacherReviewToolbar {
@@ -2500,9 +2382,6 @@
 
                 closePointCommentEditor();
 
-                referencePanel.hidden =
-                    true;
-
                 return;
             }
 
@@ -2651,15 +2530,6 @@
         );
 
 
-    const referenceButtonReview =
-        makeButton(
-            `${ENHANCE_PREFIX}-reference-tool`,
-            "review-tool",
-            "🖥 Reference",
-            "Preview the reference map on common devices"
-        );
-
-
     const clearInkButton =
         makeButton(
             `${ENHANCE_PREFIX}-clear-ink`,
@@ -2672,7 +2542,6 @@
     teacherReviewToolbar.replaceChildren(
         annotationPenButton,
         commentButton,
-        referenceButtonReview,
         clearInkButton
     );
 
@@ -3627,130 +3496,9 @@
     syncMarkedWorkToggleText();
 
 
-    /* =====================================================
-       TEACHER REFERENCE DEVICE PREVIEW
-    ===================================================== */
-
-    const referencePanel =
-        document.createElement(
-            "aside"
-        );
-
-    referencePanel.id =
-        `${ENHANCE_PREFIX}-reference-panel`;
-
-    referencePanel.className =
-        `${ENHANCE_PREFIX}-reference-panel`;
-
-    referencePanel.hidden =
-        true;
-
-    referencePanel.innerHTML = `
-        <div class="${ENHANCE_PREFIX}-reference-head">
-            <div>
-                <strong>Reference preview</strong>
-                <span>Simulates how the reference fills the student map area.</span>
-            </div>
-
-            <button
-                type="button"
-                class="${ENHANCE_PREFIX}-reference-close"
-                aria-label="Close reference preview"
-            >
-                ×
-            </button>
-        </div>
-
-        <div class="${ENHANCE_PREFIX}-device-tabs" role="group" aria-label="Preview device">
-            <button type="button" data-device="phone">Phone</button>
-            <button type="button" data-device="tablet">iPad</button>
-            <button type="button" data-device="desktop" class="active">Computer</button>
-        </div>
-
-        <p class="${ENHANCE_PREFIX}-device-note">
-            Computer mirrors the landscape canvas. Phone and iPad mirror the current responsive map height.
-        </p>
-
-        <div class="${ENHANCE_PREFIX}-device-frame" data-device="desktop">
-            <img alt="Reference map device preview">
-        </div>
-    `;
-
-
-    canvasWrap.appendChild(
-        referencePanel
-    );
-
-
-    const referenceFrame =
-        referencePanel.querySelector(
-            `.${ENHANCE_PREFIX}-device-frame`
-        );
-
-    const referenceImage =
-        referencePanel.querySelector(
-            "img"
-        );
-
-    const referenceCloseButton =
-        referencePanel.querySelector(
-            `.${ENHANCE_PREFIX}-reference-close`
-        );
-
-    const deviceButtons =
-        referencePanel.querySelectorAll(
-            `.${ENHANCE_PREFIX}-device-tabs button[data-device]`
-        );
-
-
-    const setReferenceDevice =
-        device => {
-            referenceFrame.dataset
-                .device =
-                device;
-
-
-            deviceButtons.forEach(
-                button =>
-                    button.classList
-                        .toggle(
-                            "active",
-                            button.dataset
-                                .device ===
-                                device
-                        )
-            );
-        };
-
-
-    deviceButtons.forEach(
-        button =>
-            button.addEventListener(
-                "click",
-                () =>
-                    setReferenceDevice(
-                        button.dataset
-                            .device
-                    )
-            )
-    );
-
-
-    referenceCloseButton.addEventListener(
-        "click",
-        () => {
-            referencePanel.hidden =
-                true;
-        }
-    );
-
-
     backToDashboardButton.addEventListener(
         "click",
         () => {
-            referencePanel.hidden =
-                true;
-
             closePointCommentEditor();
 
             reviewToolMode =
@@ -3759,86 +3507,6 @@
             syncReviewToolButtons();
         }
     );
-
-
-    const syncReferenceReviewUI =
-        () => {
-            const available =
-                Boolean(
-                    currentReferenceUrl
-                );
-
-
-            referenceButtonReview
-                .disabled =
-                !available;
-
-
-            if (!available) {
-                referencePanel.hidden =
-                    true;
-
-                referenceImage
-                    .removeAttribute(
-                        "src"
-                    );
-
-                return;
-            }
-
-
-            referenceImage.src =
-                currentReferenceUrl;
-        };
-
-
-    referenceButtonReview.addEventListener(
-        "click",
-        () => {
-            syncReferenceReviewUI();
-
-
-            if (
-                !currentReferenceUrl
-            ) {
-                statusBar.textContent =
-                    "This task does not have a reference map.";
-
-                return;
-            }
-
-
-            referencePanel.hidden =
-                !referencePanel.hidden;
-
-
-            if (
-                !referencePanel.hidden
-            ) {
-                setReferenceDevice(
-                    referenceFrame.dataset
-                        .device ||
-                        "desktop"
-                );
-            }
-        }
-    );
-
-
-    const originalLoadCurrentTaskReference =
-        loadCurrentTaskReference;
-
-    loadCurrentTaskReference =
-        async function (...args) {
-            const result =
-                await originalLoadCurrentTaskReference(
-                    ...args
-                );
-
-            syncReferenceReviewUI();
-
-            return result;
-        };
 
 
     /* =====================================================
@@ -3874,8 +3542,6 @@
 
 
             syncReviewToolButtons();
-
-            syncReferenceReviewUI();
 
 
             return result;
@@ -3972,8 +3638,6 @@
     updateContextToolbar();
 
     syncReviewToolButtons();
-
-    syncReferenceReviewUI();
 
     renderAnnotations();
 })();

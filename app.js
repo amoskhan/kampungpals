@@ -105,9 +105,25 @@ const DEFAULT_ALLOWED_TOOLS = {
     hazard: false,
 
     reference: true,
-
-    download: true
+    download: true,
+    // Tasks saved before Reference Fit existed have none, so they stay stretched.
+    reference_fit: "stretch"
 };
+
+const REFERENCE_FIT_STYLES = {
+    stretch: "fill",
+    keep: "contain",
+    crop: "cover"
+};
+
+function referenceObjectFit(
+    fit
+) {
+    return (
+        REFERENCE_FIT_STYLES[fit] ||
+        REFERENCE_FIT_STYLES.stretch
+    );
+}
 
 
 const $ =
@@ -3086,6 +3102,19 @@ async function loadCurrentTaskReference() {
         "src"
     );
 
+    const objectFit =
+        referenceObjectFit(
+            currentTask?.allowed_tools?.reference_fit
+        );
+
+    referenceOverlay.style.objectFit =
+        objectFit;
+
+    // Keep shape leaves bars around the image, which should not show the map.
+    referenceOverlay.style.backgroundColor =
+        objectFit === "contain"
+            ? "#fff"
+            : "";
 
     if (
         !currentTask?.reference_path
@@ -19774,7 +19803,8 @@ createTaskButton.addEventListener(
                             "Create an abstract map using relative size and position.",
 
                         allowed_tools: {
-                            ...DEFAULT_ALLOWED_TOOLS
+                            ...DEFAULT_ALLOWED_TOOLS,
+                            reference_fit: "keep"
                         },
 
                         allow_guests:
@@ -20035,13 +20065,11 @@ async function selectTeacherTask(
     );
 
 
-    teacherReferencePreview.hidden =
-        true;
-
-
-    teacherReferencePreview.removeAttribute(
-        "src"
+    setReferenceFitChoice(
+        tools.reference_fit
     );
+
+    clearTeacherReferencePreview();
 
 
     if (
@@ -20056,12 +20084,9 @@ async function selectTeacherTask(
 
         if (url) {
 
-            teacherReferencePreview.src =
-                url;
-
-
-            teacherReferencePreview.hidden =
-                false;
+            showTeacherReferencePreview(
+                url
+            );
         }
     }
 
@@ -20122,9 +20147,12 @@ saveTaskSettingsButton.addEventListener(
                 ) => {
 
                     allowed[key] =
-                        input.checked;
-                }
-            );
+                    input.checked;
+            }
+        );
+
+    allowed.reference_fit =
+        selectedReferenceFit();
 
 
         const selectedClassIds =
@@ -20620,13 +20648,7 @@ deleteTaskButton.addEventListener(
                 "";
 
 
-            teacherReferencePreview.hidden =
-                true;
-
-
-            teacherReferencePreview.removeAttribute(
-                "src"
-            );
+            clearTeacherReferencePreview();
 
 
             noTaskSelected.hidden =
@@ -20683,6 +20705,128 @@ deleteTaskButton.addEventListener(
     }
 );
 
+
+function selectedReferenceFit() {
+    return (
+        document.querySelector(
+            'input[name="referenceFit"]:checked'
+        )?.value ||
+        DEFAULT_ALLOWED_TOOLS.reference_fit
+    );
+}
+
+function applyReferencePreviewFit() {
+    const objectFit =
+        referenceObjectFit(
+            selectedReferenceFit()
+        );
+
+    teacherReferencePreview
+        .querySelectorAll("img")
+        .forEach(
+            image => {
+                image.style.objectFit =
+                    objectFit;
+            }
+        );
+}
+
+function setReferenceFitChoice(
+    fit
+) {
+    const choice =
+        REFERENCE_FIT_STYLES[fit]
+            ? fit
+            : DEFAULT_ALLOWED_TOOLS.reference_fit;
+
+    document
+        .querySelector(
+            `input[name="referenceFit"][value="${choice}"]`
+        )
+        .checked = true;
+
+    applyReferencePreviewFit();
+}
+
+function showTeacherReferencePreview(
+    url
+) {
+    teacherReferencePreview
+        .querySelectorAll("img")
+        .forEach(
+            image => {
+                image.src = url;
+            }
+        );
+
+    applyReferencePreviewFit();
+
+    teacherReferencePreview.hidden =
+        false;
+}
+
+function clearTeacherReferencePreview() {
+    teacherReferencePreview.hidden =
+        true;
+
+    teacherReferencePreview
+        .querySelectorAll("img")
+        .forEach(
+            image => {
+                image.removeAttribute("src");
+            }
+        );
+}
+
+document
+    .querySelectorAll(
+        'input[name="referenceFit"]'
+    )
+    .forEach(
+        input => {
+            input.addEventListener(
+                "change",
+                applyReferencePreviewFit
+            );
+        }
+    );
+
+teacherReferencePreview
+    .querySelectorAll(".reference-preview-device")
+    .forEach(
+        (device, index, devices) => {
+            device
+                .querySelector("button")
+                .addEventListener(
+                    "click",
+                    () => {
+                        devices.forEach(
+                            other => {
+                                const selected =
+                                    other === device;
+
+                                other.classList.toggle(
+                                    "is-selected",
+                                    selected
+                                );
+
+                                other
+                                    .querySelector("button")
+                                    .setAttribute(
+                                        "aria-pressed",
+                                        selected
+                                    );
+                            }
+                        );
+
+                        teacherReferencePreview
+                            .querySelector(".reference-preview-large")
+                            .dataset.device =
+                            device.dataset.device;
+                    }
+                );
+        }
+    );
 
 teacherReferenceFile.addEventListener(
 

@@ -1473,15 +1473,30 @@ function currentLearnerClassLabel() {
 }
 
 
+/*
+Project Access for the Project open on this student's device. The Editor lock
+flags stay as the facts about this device; the decisions come from the module.
+*/
+function studentProjectAccess() {
+    return projectAccess({
+        status:
+            projectHandedIn
+                ? "submitted"
+                : currentSubmission?.status,
+        hasReview:
+            Boolean(
+                studentReviewData
+            ),
+        isEditor:
+            !studentReadOnly &&
+            editLockOwned
+    });
+}
+
 function isStudentEditingAllowed() {
-
     return (
-
         appMode === "student" &&
-
-        !studentReadOnly &&
-
-        editLockOwned
+        studentProjectAccess().canDraw
     );
 }
 
@@ -2085,12 +2100,11 @@ function scheduleSave() {
 
 
     if (
-        studentReadOnly
+        studentReadOnly ||
+        studentProjectAccess().handedIn
     ) {
-
         return;
     }
-
 
     saveLocalBackup();
 
@@ -2130,17 +2144,15 @@ async function saveStudentMap(
     }
 
 
+    const access =
+        studentProjectAccess();
+
     if (
-
-        studentReadOnly ||
-
-        !editLockOwned
-
+        !access.canDraw
     ) {
-
         if (showMessage) {
-
             statusBar.textContent =
+                access.lockedMessage ||
                 "Read-only: this project is being edited on another device, so changes from this device are not saved.";
         }
 
@@ -2339,15 +2351,14 @@ async function submitToTeacher() {
     }
 
 
+    const access =
+        studentProjectAccess();
+
     if (
-
-        studentReadOnly ||
-
-        !editLockOwned
-
+        !access.canDraw
     ) {
-
         statusBar.textContent =
+            access.lockedMessage ||
             "Read-only: only the device currently holding the edit lock can submit this project.";
 
         return;
@@ -2542,14 +2553,14 @@ function applyStudentEditLockUI() {
             false;
 
 
-        if (
-            projectHandedIn
-        ) {
+        const access =
+            studentProjectAccess();
 
+        if (
+            access.handedIn
+        ) {
             const marked =
-                Boolean(
-                    studentReviewData
-                );
+                access.marked;
 
 
             editLockLabel.textContent =
@@ -12875,9 +12886,7 @@ HANDED IN IS FINAL
 ========================================================= */
 
 function handedInStatusText() {
-
-    return studentReviewData
-
+    return studentProjectAccess().marked
         ? "Marked. Read your teacher's feedback below."
 
         : "Handed in. Waiting for your teacher to mark it.";
@@ -13067,10 +13076,18 @@ async function signedOutElsewhere() {
 
 
 function reviewIsHandedIn() {
-
     return (
-        reviewSubmission?.status ===
-        "submitted"
+        Boolean(
+            reviewSubmission
+        ) &&
+        projectAccess({
+            status:
+                reviewSubmission.status,
+            hasReview:
+                Boolean(
+                    reviewLastSeenSavedAt
+                )
+        }).teacherCanMark
     );
 }
 
@@ -14644,13 +14661,18 @@ Marked
                 }
 
 <span class="student-project-status ${
-                    project.status === "submitted"
+                    projectAccess({
+                        status: project.status,
+                        hasReview
+                    }).className
                         ? "submitted"
                         : ""
                 }">
 ${escapeHtml(
-                    project.status ||
-                    "draft"
+                    projectAccess({
+                        status: project.status,
+                        hasReview
+                    }).statusWord
                 )}
 </span>
 
@@ -15525,10 +15547,14 @@ async function loadStudentProject(
 
 
         projectHandedIn =
-            project.status === "submitted" ||
-            Boolean(
-                latestStudentReview
-            );
+            projectAccess({
+                status:
+                    project.status,
+                hasReview:
+                    Boolean(
+                        latestStudentReview
+                    )
+            }).handedIn;
 
 
         const acquired =
@@ -15560,12 +15586,7 @@ async function loadStudentProject(
 
 
             statusBar.textContent =
-
-                project.status === "submitted"
-
-                    ? "You are drawing. This project has been handed in, but you can keep editing and hand it in again."
-
-                    : "You are drawing. Your work saves automatically.";
+                "You are drawing. Your work saves automatically.";
         }
 
         else {
@@ -21298,8 +21319,12 @@ No student saves yet.
             ) {
 
                 const becameSubmitted =
-                    entry.submission.status !== "submitted" &&
-                    submission.status === "submitted";
+                    !submissionAccess(
+                        entry.submission
+                    ).handedIn &&
+                    submissionAccess(
+                        submission
+                    ).handedIn;
 
 
                 entry.submission =
@@ -21548,13 +21573,16 @@ ${
 ${new Date(submission.updated_at).toLocaleString()}
 </div>
 <div class="status-pill ${
-            submission.status === "submitted"
+            submissionAccess(
+                submission
+            ).handedIn
                 ? "submitted"
                 : ""
         }">
 ${escapeHtml(
-            submission.status ||
-            "draft"
+            submissionAccess(
+                submission
+            ).statusWord
         )}
 </div>
 `
@@ -21671,44 +21699,16 @@ refreshSubmissionsButton.addEventListener(
 function galleryStatus(
     submission
 ) {
-
-    if (
-        submission.reviewed_at
-    ) {
-
-        return {
-
-            label:
-                "Marked",
-
-            className:
-                "marked"
-        };
-    }
-
-
-    if (
-        submission.status === "submitted"
-    ) {
-
-        return {
-
-            label:
-                "Submitted",
-
-            className:
-                "submitted"
-        };
-    }
-
+    const {
+        label,
+        className
+    } = submissionAccess(
+        submission
+    );
 
     return {
-
-        label:
-            "Drawing",
-
-        className:
-            ""
+        label,
+        className
     };
 }
 
@@ -22510,8 +22510,12 @@ No student saves yet.
             ) {
 
                 const becameSubmitted =
-                    entry.submission.status !== "submitted" &&
-                    submission.status === "submitted";
+                    !submissionAccess(
+                        entry.submission
+                    ).handedIn &&
+                    submissionAccess(
+                        submission
+                    ).handedIn;
 
 
                 entry.submission =

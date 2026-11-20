@@ -20312,11 +20312,28 @@ async function loadHandInSummary(
                 .eq("task_id", task.id)
         ]);
 
+    const projectRows =
+        rowsOrThrow(projects);
+
+    const reviews =
+        projectRows.length
+            ? rowsOrThrow(
+                await sb
+                    .from("submission_reviews")
+                    .select("submission_id")
+                    .in(
+                        "submission_id",
+                        projectRows.map(project => project.id)
+                    )
+            )
+            : [];
+
     return handInSummary({
         classes,
         roster: rowsOrThrow(roster),
-        projects: rowsOrThrow(projects),
-        members: rowsOrThrow(members)
+        projects: projectRows,
+        members: rowsOrThrow(members),
+        reviews
     });
 }
 
@@ -20437,6 +20454,63 @@ Students won't be able to change them afterwards.`
 }
 
 /*
+"Approve all handed-in maps": every map in one Class that is handed in with
+no Review yet gets an Approved Review with no comments. Maps already Reviewed
+are never changed.
+*/
+async function approveAllForClass(
+    item,
+    refresh
+) {
+    const count =
+        item.unreviewedIds.length;
+    if (
+        !count ||
+        !confirm(
+            `Approve ${plural(count, "handed-in map")} for ${item.className}?
+
+Each is Approved with no comments. You can still open any of them and change its Review.`
+        )
+    ) {
+        return;
+    }
+    const savedAt =
+        new Date().toISOString();
+    const { error } =
+        await sb
+            .from("submission_reviews")
+            .upsert(
+                item.unreviewedIds.map(
+                    id => ({
+                        submission_id:
+                            id,
+                        teacher_id:
+                            currentTeacherUser.id,
+                        teacher_feedback:
+                            "",
+                        teacher_annotations:
+                            [],
+                        verdict:
+                            "approved",
+                        updated_at:
+                            savedAt
+                    })
+                ),
+                {
+                    onConflict:
+                        "submission_id",
+                    // Someone may have Reviewed one meanwhile: keep theirs.
+                    ignoreDuplicates:
+                        true
+                }
+            );
+    if (error) {
+        throw error;
+    }
+    await refresh();
+}
+
+/*
 Fills container with who has handed in their map for a Task, for each of
 this Teacher's Classes, with buttons to sort out each Class. isStillWanted()
 is asked once the counts arrive, in case the window has closed or moved on
@@ -20540,6 +20614,28 @@ async function fillHandInSummary(
                             `Hand in all (${plural(item.notHandedInIds.length, "map")})`,
                             () =>
                                 handInAllForClass(
+                                    item,
+                                    refresh
+                                )
+                        )
+                    );
+                }
+                block.appendChild(
+                    handInLine(
+                        "Not reviewed yet",
+                        plural(item.unreviewed.length, "map"),
+                        item.unreviewed
+                            .map(names => names.join(" & "))
+                            .join(", "),
+                        "waiting"
+                    )
+                );
+                if (item.unreviewedIds.length) {
+                    block.appendChild(
+                        classBatchButton(
+                            `Approve all handed-in maps (${item.unreviewedIds.length})`,
+                            () =>
+                                approveAllForClass(
                                     item,
                                     refresh
                                 )

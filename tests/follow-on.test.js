@@ -159,3 +159,31 @@ test("a student's newest map is the one that counts", () => {
     assert.deepEqual(summary[0].notHandedIn, [["Amir"]]);
     assert.deepEqual(summary[0].notHandedInIds, ["p2"], "the draft Revised Map is the one to hand in");
 });
+
+test("the hand-in summary lists handed-in maps that have no Review yet", () => {
+    const summary = handInSummary({
+        classes: [{ id: "c1", name: "TG1" }],
+        roster: [
+            { id: "amir", student_name: "Amir", class_id: "c1", register_no: 1 },
+            { id: "bea", student_name: "Bea", class_id: "c1", register_no: 2 },
+            { id: "chen", student_name: "Chen", class_id: "c1", register_no: 3 },
+            { id: "dan", student_name: "Dan", class_id: "c1", register_no: 4 }
+        ],
+        projects: [
+            { id: "p1", status: "submitted", class_id: "c1", primary_student_id: "amir", submission_number: 1 },
+            { id: "p2", status: "submitted", class_id: "c1", primary_student_id: "bea", submission_number: 1 },
+            { id: "p3", status: "draft", class_id: "c1", primary_student_id: "chen", submission_number: 1 },
+            // Dan's original was Returned; his handed-in Revised Map has no Review yet.
+            { id: "p4", status: "submitted", class_id: "c1", primary_student_id: "dan", submission_number: 1 },
+            { id: "p5", status: "submitted", class_id: "c1", primary_student_id: "dan", submission_number: 2 }
+        ],
+        members: [],
+        reviews: [
+            { submission_id: "p2", verdict: "approved" },
+            { submission_id: "p4", verdict: "returned" }
+        ]
+    });
+
+    assert.deepEqual(summary[0].unreviewed, [["Amir"], ["Dan"]]);
+    assert.deepEqual(summary[0].unreviewedIds, ["p1", "p5"]);
+});

@@ -80,3 +80,36 @@ test("\"Hand in all\" does nothing if the Teacher cancels", async ({ page }) => 
 
     expect(await status(page, "map-ali")).toBe("draft");
 });
+
+const reviewFor = (page, id) =>
+    page.evaluate(
+        mapId => window.fakeSupabase.tables.submission_reviews?.find(row => row.submission_id === mapId) || null,
+        id
+    );
+
+test("\"Approve all handed-in maps\" Approves only handed-in maps with no Review", async ({ page }) => {
+    const errors = await openApp(page, setUpClass);
+    // Plus Dan, whose handed-in map was already Returned.
+    await page.evaluate(() => {
+        const tables = window.fakeSupabase.tables;
+        tables.students.push({ id: "dan", student_name: "Dan", class_id: "class-1", register_no: 4, active: true });
+        tables.submissions.push({ id: "map-dan", task_id: "task-1", status: "submitted", class_id: "class-1", primary_student_id: "dan", submission_number: 1 });
+        tables.submission_members.push({ submission_id: "map-dan", task_id: "task-1", student_id: "dan" });
+        tables.submission_reviews = [{ submission_id: "map-dan", verdict: "returned", teacher_feedback: "Add the hall" }];
+    });
+    await openFollowOnWindow(page);
+
+    await expect(page.locator("#followOnHandIn")).toContainText("Not reviewed yet: 1 map — Bea");
+    await page.getByRole("button", { name: "Approve all handed-in maps (1)" }).click();
+
+    await expect.poll(() => reviewFor(page, "map-bea")).toMatchObject({ verdict: "approved", teacher_feedback: "" });
+    expect(await reviewFor(page, "map-ali")).toBeNull();
+    expect((await reviewFor(page, "map-dan")).verdict).toBe("returned");
+    await expect(page.locator("#followOnHandIn")).toContainText("Not reviewed yet: 0 maps");
+
+    // Handing in Ali's map makes it the next to approve.
+    await page.getByRole("button", { name: "Hand in all (1 map)" }).click();
+    await expect(page.getByRole("button", { name: "Approve all handed-in maps (1)" })).toBeVisible();
+    await expect(page.locator("#followOnHandIn")).toContainText("Not reviewed yet: 1 map — Ali");
+    expect(errors).toEqual([]);
+});

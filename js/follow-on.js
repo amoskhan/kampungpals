@@ -64,6 +64,7 @@ function followOnTaskSettings(
 Who has handed in their map for a Task, for each Class:
   handedInMaps / handedInStudents        — Submitted or Marked
   notHandedIn (names per map) / notHandedInIds / notHandedInStudents — still a draft
+  unreviewed (names per map) / unreviewedIds — handed in, with no Review yet
   noMap                                  — on the Roster, with no Project ("No map (absent?)")
 A student belongs to a map through its Group members or as its main student.
 Where a student has more than one map, the newest counts. Guests are never counted.
@@ -72,8 +73,15 @@ function handInSummary({
     classes,
     roster,
     projects,
-    members
+    members,
+    reviews
 }) {
+    const reviewed =
+        new Set(
+            (reviews || []).map(
+                review => review.submission_id
+            )
+        );
     const projectById =
         new Map(
             (projects || []).map(
@@ -132,6 +140,7 @@ function handInSummary({
 
             const handedIn = new Set();
             const notHandedIn = new Map();
+            const unreviewed = new Map();
             const noMap = [];
             let handedInStudents = 0;
             let notHandedInStudents = 0;
@@ -159,6 +168,14 @@ function handInSummary({
 
                     handedInStudents += 1;
                     handedIn.add(project.id);
+
+                    if (!reviewed.has(project.id)) {
+                        if (!unreviewed.has(project.id)) {
+                            unreviewed.set(project.id, []);
+                        }
+
+                        unreviewed.get(project.id).push(student.student_name);
+                    }
                 }
             );
 
@@ -176,6 +193,11 @@ function handInSummary({
                 notHandedInIds:
                     [...notHandedIn.keys()],
                 notHandedInStudents,
+                // Handed in with no Review yet, for "Approve all handed-in maps".
+                unreviewed:
+                    [...unreviewed.values()],
+                unreviewedIds:
+                    [...unreviewed.keys()],
                 noMap
             };
         }

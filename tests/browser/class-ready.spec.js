@@ -113,3 +113,45 @@ test("\"Approve all handed-in maps\" Approves only handed-in maps with no Review
     await expect(page.locator("#followOnHandIn")).toContainText("Not reviewed yet: 1 map — Ali");
     expect(errors).toEqual([]);
 });
+
+test("a Follow-on Task can't be created until every map is handed in and Reviewed", async ({ page }) => {
+    const errors = await openApp(page, setUpClass);
+    await openFollowOnWindow(page);
+
+    const create = page.locator("#confirmFollowOnButton");
+    const note = page.locator("#followOnReadyNote");
+    await expect(create).toBeDisabled();
+    await expect(note).toContainText("Waiting for TG1");
+
+    await page.getByRole("button", { name: "Hand in all (1 map)" }).click();
+    await expect(page.getByRole("button", { name: "Approve all handed-in maps (2)" })).toBeVisible();
+    await expect(create).toBeDisabled();
+
+    await page.getByRole("button", { name: "Approve all handed-in maps (2)" }).click();
+    // Cam has no map: he doesn't hold it up.
+    await expect(create).toBeEnabled();
+    await expect(note).toContainText("Every map is handed in and Reviewed");
+    expect(errors).toEqual([]);
+});
+
+test("a handed-in Revised Map needn't be Reviewed, but a started one must be handed in", async ({ page }) => {
+    await openApp(page, setUpClass);
+    await page.evaluate(() => {
+        const tables = window.fakeSupabase.tables;
+        tables.submissions.find(row => row.id === "map-ali").status = "submitted";
+        tables.submissions.push({ id: "map-bea-2", task_id: "task-1", status: "draft", class_id: "class-1", primary_student_id: "bea", submission_number: 2, parent_submission_id: "map-bea" });
+        tables.submission_members.push({ submission_id: "map-bea-2", task_id: "task-1", student_id: "bea" });
+        tables.submission_reviews = [
+            { submission_id: "map-ali", verdict: "approved" },
+            { submission_id: "map-bea", verdict: "returned" }
+        ];
+    });
+    await openFollowOnWindow(page);
+
+    const create = page.locator("#confirmFollowOnButton");
+    await expect(page.locator("#followOnHandIn")).toContainText("Not handed in: 1 map");
+    await expect(create).toBeDisabled();
+
+    await page.getByRole("button", { name: "Hand in all (1 map)" }).click();
+    await expect(create).toBeEnabled();
+});

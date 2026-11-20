@@ -105,3 +105,18 @@ test("a Guest with no earlier map is told they can't take part", async ({ page }
     expect(await rpcCalls(page, "guest_start_follow_on_project")).toEqual([]);
     expect(await rpcCalls(page, "guest_start_project")).toEqual([]);
 });
+
+test("a student whose earlier map isn't handed in is asked to see their teacher", async ({ page }) => {
+    await openApp(page, setUpAbsentStudent);
+    await page.evaluate(() => {
+        window.fakeSupabase.rpc.follow_on_start_info = () => [
+            { earlier_submission_id: "map-1", earlier_status: "draft", earlier_task_title: "School map" }
+        ];
+    });
+    await enterTaskCode(page, "registered");
+
+    await expect.poll(() => page.evaluate(() => studentTaskError.textContent)).toContain(
+        "Your map for School map hasn't been handed in yet. Ask your teacher to hand it in."
+    );
+    expect(await rpcCalls(page, "student_start_follow_on_project")).toEqual([]);
+});

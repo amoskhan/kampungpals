@@ -11,7 +11,7 @@ href="assets/logo.svg"
 >
 <link
 rel="stylesheet"
-href="css/style.css?v=20261120i"
+href="css/style.css?v=20261121c"
 >
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -2358,8 +2358,8 @@ Who has handed in their map?
 <div id="followOnHandIn" class="follow-on-hand-in-list">
 Checking…
 </div>
-<p class="follow-on-hand-in-note">
-Students who haven’t handed in will be asked to hand in their map when they open the new Task. You can also close this and use <strong>Hand in for them</strong> first.
+<p id="followOnReadyNote" class="follow-on-hand-in-note">
+Every map must be handed in and every first map Reviewed before you can create the Task. Students with no map don’t hold it up.
 </p>
 </div>
 
@@ -2402,49 +2402,6 @@ class="modal-primary-button"
 type="button"
 >
 Create follow-on Task
-</button>
-
-</div>
-
-</div>
-</div>
-
-<div
-id="handInEarlierModal"
-class="modal-overlay"
-hidden
->
-
-<div class="object-modal" role="dialog" aria-modal="true" aria-labelledby="handInEarlierTitle">
-
-<div class="modal-step-label">
-BEFORE YOU START
-</div>
-
-<h2 id="handInEarlierTitle">
-Hand in your earlier map?
-</h2>
-
-<p class="modal-description">
-Your map for <strong id="handInEarlierTask"></strong> has not been handed in yet. Starting this Task hands it in for your Group, and you carry on from a copy of it here. You cannot change the earlier map after that.
-</p>
-
-<div class="modal-actions">
-
-<button
-id="cancelHandInEarlierButton"
-class="modal-secondary-button"
-type="button"
->
-Cancel
-</button>
-
-<button
-id="confirmHandInEarlierButton"
-class="modal-primary-button"
-type="button"
->
-Hand in and start
 </button>
 
 </div>
@@ -3177,13 +3134,13 @@ Save
 </div>
 
 <!-- Change ?v= on these files whenever they change, so browsers stop using old copies. -->
-<script src="js/project-access.js?v=20261120i"></script>
-<script src="js/reference-fit.js?v=20261120i"></script>
-<script src="js/follow-on.js?v=20261120i"></script>
-<script src="js/map-downloads.js?v=20261120i"></script>
-<script src="js/app.js?v=20261120i"></script>
-<script src="js/map-tools.js?v=20261120i"></script>
-<script src="js/revised-map.js?v=20261120i"></script>
-<script src="js/tutorial.js?v=20261120i"></script>
+<script src="js/project-access.js?v=20261121c"></script>
+<script src="js/reference-fit.js?v=20261121c"></script>
+<script src="js/follow-on.js?v=20261121c"></script>
+<script src="js/map-downloads.js?v=20261121c"></script>
+<script src="js/app.js?v=20261121c"></script>
+<script src="js/map-tools.js?v=20261121c"></script>
+<script src="js/revised-map.js?v=20261121c"></script>
+<script src="js/tutorial.js?v=20261121c"></script>
 </body>
 </html>

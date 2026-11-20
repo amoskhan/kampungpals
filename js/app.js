@@ -20170,6 +20170,9 @@ const cancelFollowOnButton =
 const confirmFollowOnButton =
     $("confirmFollowOnButton");
 
+const followOnReadyNote =
+    $("followOnReadyNote");
+
 // "Follows on from: School map" under the heading of a Follow-on Task.
 function showTeacherTaskFollowsOn(
     task
@@ -20528,7 +20531,10 @@ async function fillHandInSummary(
             "Couldn’t check who has handed in.",
         // Keep showing the last counts while new ones load.
         quiet =
-            false
+            false,
+        // Told the summary once it loads, or null if it couldn't be.
+        onSummary =
+            () => {}
     } = options;
     const refresh =
         () =>
@@ -20558,7 +20564,9 @@ async function fillHandInSummary(
         if (!isStillWanted()) {
             return;
         }
-
+        onSummary(
+            summary
+        );
         container.textContent =
             "";
 
@@ -20662,15 +20670,57 @@ async function fillHandInSummary(
         );
 
         if (isStillWanted()) {
+            onSummary(
+                null
+            );
             container.textContent =
                 failureText;
         }
     }
 }
 
+/*
+A Follow-on Task can be created once every Class is ready: every map handed
+in and every first map Reviewed (GLOSSARY.md: Follow-on Task).
+*/
+function setFollowOnReady(
+    summary
+) {
+    const waiting =
+        (summary || [])
+            .filter(
+                item => !item.readyForFollowOn
+            )
+            .map(
+                item => item.className
+            );
+    const ready =
+        Boolean(summary) &&
+        !waiting.length;
+    confirmFollowOnButton.disabled =
+        !ready;
+    followOnReadyNote.textContent =
+        !summary
+            ? "Close this and try again: you can create the Task once we can check every map is handed in and Reviewed."
+            : ready
+                ? "Every map is handed in and Reviewed. Students with no map join a Group in the new Task."
+                : `Waiting for ${waiting.join(", ")}: every map must be handed in and every first map Reviewed. Use the buttons above, or open a map to Review it.`;
+    followOnReadyNote.classList.toggle(
+        "is-waiting",
+        !ready
+    );
+}
+
 function showFollowOnHandIn(
     task
 ) {
+    setFollowOnReady(
+        []
+    );
+    confirmFollowOnButton.disabled =
+        true;
+    followOnReadyNote.textContent =
+        "Checking every map is handed in and Reviewed…";
     return fillHandInSummary(
         followOnHandIn,
         task,
@@ -20681,7 +20731,9 @@ function showFollowOnHandIn(
                     !followOnModal.hidden &&
                     selectedTeacherTask?.id === task.id,
             failureText:
-                "Couldn’t check who has handed in. You can still create the Task."
+                "Couldn’t check who has handed in.",
+            onSummary:
+                setFollowOnReady
         }
     );
 }
@@ -27234,52 +27286,6 @@ async function fillEmptyFollowOnProject(
 }
 
 // Asks before an earlier draft is handed in. Resolves true to go ahead.
-function confirmHandInEarlier(
-    earlierTitle
-) {
-    const modal =
-        $("handInEarlierModal");
-
-    $("handInEarlierTask").textContent =
-        earlierTitle ||
-        "the earlier Task";
-
-    modal.hidden =
-        false;
-
-    document.body.classList.add(
-        "modal-open"
-    );
-
-    return new Promise(
-        resolve => {
-            const finish =
-                answer => {
-                    modal.hidden =
-                        true;
-
-                    document.body.classList.remove(
-                        "modal-open"
-                    );
-
-                    $("confirmHandInEarlierButton").onclick =
-                        null;
-
-                    $("cancelHandInEarlierButton").onclick =
-                        null;
-
-                    resolve(answer);
-                };
-
-            $("confirmHandInEarlierButton").onclick =
-                () => finish(true);
-
-            $("cancelHandInEarlierButton").onclick =
-                () => finish(false);
-        }
-    );
-}
-
 /*
 Opening a Follow-on Task the student has no Project for yet. Returns false when
 the Task is not a Follow-on Task, so the usual start can carry on.
@@ -27342,20 +27348,11 @@ async function startFollowOnProject(
         return true;
     }
 
-    let handIn =
-        false;
-
-    if (step === "hand-in") {
-        if (
-            !await confirmHandInEarlier(
-                info.earlier_task_title
-            )
-        ) {
-            return true;
-        }
-
-        handIn =
-            true;
+    // Only the Teacher hands in maps; a Follow-on Task normally waits for them all.
+    if (step === "not-handed-in") {
+        throw new Error(
+            `Your map for ${info.earlier_task_title || "the earlier Task"} hasn't been handed in yet. Ask your teacher to hand it in.`
+        );
     }
 
     const [submissionId] =
@@ -27368,18 +27365,14 @@ async function startFollowOnProject(
                     p_student_id:
                         studentId,
                     p_member_ids:
-                        [],
-                    p_hand_in_earlier:
-                        handIn
+                        []
                 }
             )
             : await followOnRows(
                 "guest_start_follow_on_project",
                 {
                     p_task_code:
-                        task.task_code,
-                    p_hand_in_earlier:
-                        handIn
+                        task.task_code
                 }
             );
 

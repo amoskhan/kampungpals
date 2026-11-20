@@ -9364,6 +9364,11 @@ color:#5b6670;
 font-size:13px;
 }
 
+.follow-on-hand-in-note.is-waiting {
+color:#9a4b00;
+font-weight:600;
+}
+
 .follow-on-field {
 display:block;
 margin:0 0 12px;

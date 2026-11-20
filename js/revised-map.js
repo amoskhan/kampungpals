@@ -1179,6 +1179,59 @@ Enter a task code above to open a task.
 
     }
 
+    // One line in the Task folder in place of its maps, such as an error.
+    function showFolderMessage(
+
+        text,
+
+        isError = false
+
+    ) {
+
+        const message =
+
+            document.createElement(
+
+                "p"
+
+            );
+
+        message.className =
+
+            isError
+
+                ? "modal-error"
+
+                : "helper-text";
+
+        if (
+
+            isError
+
+        ) {
+
+            message.setAttribute(
+
+                "role",
+
+                "alert"
+
+            );
+
+        }
+
+        message.textContent =
+
+            text;
+
+        studentProjectsList.replaceChildren(
+
+            message
+
+        );
+
+    }
+
     function unlockTaskFolder(
 
         task
@@ -2465,6 +2518,17 @@ Enter a task code above to open a task.
                         }
                     );
 
+            if (
+                !taskProjects.length
+            ) {
+
+                showFolderMessage(
+                    "No maps for this Task yet."
+                );
+
+                return;
+            }
+
             currentStudentProjects =
                 taskProjects;
 
@@ -2852,10 +2916,29 @@ Not marked yet
                 task
             );
 
+            showFolderMessage(
+                "Opening this Task…"
+            );
+
             originalTaskCodeInput.value =
                 code;
 
             await openTaskFromCode();
+
+            /*
+            The code box, where openTaskFromCode shows its errors, is
+            hidden while a Task folder is open, so say it here instead.
+            */
+            if (
+                !studentTaskError.hidden &&
+                studentTaskError.textContent.trim()
+            ) {
+
+                showFolderMessage(
+                    `This Task couldn't be opened. ${studentTaskError.textContent.trim()} Please ask your teacher.`,
+                    true
+                );
+            }
         }
 
         catch (

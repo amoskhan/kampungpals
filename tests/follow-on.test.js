@@ -8,7 +8,8 @@ const {
     handInSummary,
     orderTasksForList,
     isReferenceShared,
-    followOnStartStep
+    followOnStartStep,
+    effectiveTools
 } = require("../js/follow-on.js");
 
 test("a Follow-on Task is suggested as the Hazards lesson", () => {
@@ -52,6 +53,7 @@ test("a Follow-on Task copies the earlier Task's settings and switches Hazards o
     assert.equal(settings.reference_path, "teacher/t1/map.png");
     assert.equal(settings.allow_guests, false);
     assert.equal(settings.allowed_tools.hazard, true);
+    assert.equal(settings.allowed_tools.hazards_only, true);
     assert.equal(settings.allowed_tools.shapes, true);
     assert.deepEqual(settings.allowed_tools.reference_crops, earlier.allowed_tools.reference_crops);
     assert.equal(earlier.allowed_tools.hazard, false, "the earlier Task is not changed");
@@ -217,4 +219,34 @@ test("a Class is ready for a Follow-on Task once every map is handed in and ever
         false,
         "a started Revised Map must be handed in"
     );
+});
+
+test("a Hazards-only Task gives students only the Hazard tool and Select", () => {
+    const tools = effectiveTools({
+        hazards_only: true,
+        move: false,
+        shapes: true,
+        freehand: true,
+        path: true,
+        road: true,
+        colour: true,
+        transform: true,
+        layers: true,
+        hazard: false,
+        reference: true,
+        download: false
+    });
+
+    assert.equal(tools.move, true);
+    assert.equal(tools.hazard, true);
+    for (const key of ["shapes", "freehand", "path", "road", "colour", "transform", "layers"]) {
+        assert.equal(tools[key], false, key);
+    }
+    assert.equal(tools.reference, true, "the Reference Map is still the Teacher's choice");
+    assert.equal(tools.download, false, "downloads are still the Teacher's choice");
+});
+
+test("an ordinary Task's tools are unchanged", () => {
+    const tools = { shapes: true, hazard: false };
+    assert.equal(effectiveTools(tools), tools);
 });

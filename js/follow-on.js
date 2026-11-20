@@ -63,7 +63,7 @@ function followOnTaskSettings(
 /*
 Who has handed in their map for a Task, for each Class:
   handedInMaps / handedInStudents        — Submitted or Marked
-  notHandedIn (names per map) / notHandedInStudents — still a draft
+  notHandedIn (names per map) / notHandedInIds / notHandedInStudents — still a draft
   noMap                                  — on the Roster, with no Project ("No map (absent?)")
 A student belongs to a map through its Group members or as its main student.
 Where a student has more than one map, the newest counts. Guests are never counted.
@@ -172,6 +172,9 @@ function handInSummary({
                 handedInStudents,
                 notHandedIn:
                     [...notHandedIn.values()],
+                // The draft maps, for "Hand in all".
+                notHandedInIds:
+                    [...notHandedIn.keys()],
                 notHandedInStudents,
                 noMap
             };

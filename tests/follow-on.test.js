@@ -132,6 +132,7 @@ test("the hand-in summary counts maps and students for each Class", () => {
     assert.equal(tg1.handedInMaps, 2);
     assert.equal(tg1.handedInStudents, 3);
     assert.deepEqual(tg1.notHandedIn, [["Chen"]]);
+    assert.deepEqual(tg1.notHandedInIds, ["p2"]);
     assert.equal(tg1.notHandedInStudents, 1);
     assert.deepEqual(tg1.noMap, ["Eli"]);
 
@@ -156,4 +157,5 @@ test("a student's newest map is the one that counts", () => {
 
     assert.equal(summary[0].handedInMaps, 0);
     assert.deepEqual(summary[0].notHandedIn, [["Amir"]]);
+    assert.deepEqual(summary[0].notHandedInIds, ["p2"], "the draft Revised Map is the one to hand in");
 });

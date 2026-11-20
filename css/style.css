@@ -9351,6 +9351,13 @@ border-left-color:#d9822b;
 border-left-color:#9aa3ad;
 }
 
+.follow-on-batch-button {
+margin:6px 0 2px 13px;
+min-height:36px;
+padding:6px 12px;
+font-size:14px;
+}
+
 .follow-on-hand-in-note {
 margin:8px 0 0;
 color:#5b6670;

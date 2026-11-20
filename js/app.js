@@ -20233,15 +20233,94 @@ function plural(
     return `${count} ${word}${count === 1 ? "" : "s"}`;
 }
 
+// A per-Class action under the hand-in summary, such as "Hand in all".
+function classBatchButton(
+    label,
+    action
+) {
+    const button =
+        document.createElement("button");
+    button.type =
+        "button";
+    button.className =
+        "quiet-button follow-on-batch-button";
+    button.textContent =
+        label;
+    button.addEventListener(
+        "click",
+        async () => {
+            button.disabled =
+                true;
+            try {
+                await action();
+            }
+            catch (error) {
+                console.error(
+                    error
+                );
+                alert(
+                    error.message ||
+                    "That didn’t work. Please try again."
+                );
+            }
+            finally {
+                button.disabled =
+                    false;
+            }
+        }
+    );
+    return button;
+}
+
+/*
+"Hand in all": every map in one Class still being drawn for a Task, handed
+in as if the Teacher pressed "Hand in for them" on each.
+*/
+async function handInAllForClass(
+    item,
+    refresh
+) {
+    const count =
+        item.notHandedInIds.length;
+    if (
+        !count ||
+        !confirm(
+            `Hand in ${plural(count, "map")} for ${item.className}?
+
+Students won't be able to change them afterwards.`
+        )
+    ) {
+        return;
+    }
+    const { error } =
+        await sb
+            .from("submissions")
+            .update({
+                status:
+                    "submitted",
+                submitted_at:
+                    new Date().toISOString()
+            })
+            .in("id", item.notHandedInIds)
+            .eq("status", "draft");
+    if (error) {
+        throw error;
+    }
+    await refresh();
+}
+
 /*
 Fills container with who has handed in their map for a Task, for each of
-this Teacher's Classes. isStillWanted() is asked once the counts arrive, in
-case the window has closed or moved on meanwhile.
+this Teacher's Classes, with buttons to sort out each Class. isStillWanted()
+is asked once the counts arrive, in case the window has closed or moved on
+meanwhile.
 */
 async function fillHandInSummary(
     container,
     task,
-    {
+    options = {}
+) {
+    const {
         isStillWanted =
             () => true,
         failureText =
@@ -20249,8 +20328,18 @@ async function fillHandInSummary(
         // Keep showing the last counts while new ones load.
         quiet =
             false
-    } = {}
-) {
+    } = options;
+    const refresh =
+        () =>
+            fillHandInSummary(
+                container,
+                task,
+                {
+                    ...options,
+                    quiet:
+                        true
+                }
+            );
     if (
         !quiet ||
         !container.childElementCount
@@ -20318,6 +20407,18 @@ async function fillHandInSummary(
                     )
                 );
 
+                if (item.notHandedInIds.length) {
+                    block.appendChild(
+                        classBatchButton(
+                            `Hand in all (${plural(item.notHandedInIds.length, "map")})`,
+                            () =>
+                                handInAllForClass(
+                                    item,
+                                    refresh
+                                )
+                        )
+                    );
+                }
                 block.appendChild(
                     handInLine(
                         "No map (absent?)",

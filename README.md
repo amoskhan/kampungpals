@@ -53,7 +53,20 @@ The tests need only [Node.js](https://nodejs.org), and have been run on version 
 node --test
 ```
 
-They cover the logic in `js/project-access.js` and `js/reference-fit.js`. The rest of the app has no automated tests yet, so check changes in a browser.
+They cover the logic in `js/project-access.js` and `js/reference-fit.js`.
+
+### Browser tests
+
+`tests/browser/` runs the real app in Chromium with Supabase replaced by an in-memory fake (`fake-supabase.js`), so nothing touches real data. They cover the Task editor and Revised Maps. Set them up once, then run them:
+
+```sh
+cd tests/browser
+npm install
+npx playwright install chromium
+npm test
+```
+
+Each test sets up the rows and server replies it needs in `window.fakeSupabase`. `app.js` there has the shared steps: open the app, sign in as a Teacher, open a Project as a student or Guest, and draw a Landmark. The rest of the app has no automated tests yet, so check other changes in a browser.
 
 ## How the code is arranged
 
@@ -72,6 +85,7 @@ kampungpals/
 │   └── tutorial.js         # the App Tutorial
 ├── assets/                 # logo and images
 ├── tests/                  # run with node --test
+│   └── browser/            # browser tests, run with npm test (see above)
 ├── tools/                  # App Feedback email script (Google Apps Script)
 ├── docs/
 │   ├── adr/                # decisions and why they were made

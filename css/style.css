@@ -9234,6 +9234,62 @@ margin:4px 0 0;
 white-space:pre-wrap;
 }
 
+/* =========================================================
+MAP DOWNLOADS
+========================================================= */
+.map-format-card {
+width:min(460px,100%);
+}
+
+.map-format-options {
+display:grid;
+gap:10px;
+margin:8px 0 10px;
+}
+
+.map-format-option {
+display:flex;
+align-items:baseline;
+gap:12px;
+width:100%;
+margin:0;
+padding:12px 14px;
+border:1px solid var(--line);
+border-radius:10px;
+background:#fff;
+color:var(--ink);
+text-align:left;
+cursor:pointer;
+}
+
+.map-format-option strong {
+min-width:48px;
+color:var(--forest-dark);
+font-size:16px;
+}
+
+.map-format-option span {
+color:#5b6670;
+font-size:14px;
+}
+
+.map-format-option:hover,
+.map-format-option:focus-visible {
+border-color:var(--forest);
+background:#edf4ee;
+}
+
+.map-format-option:disabled {
+opacity:.6;
+cursor:progress;
+}
+
+.map-format-note {
+margin:0 0 8px;
+color:#5b6670;
+font-size:13px;
+}
+
 .follow-on-manager[hidden] {
 display:none;
 }

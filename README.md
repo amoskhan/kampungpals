@@ -55,6 +55,16 @@ node --test
 
 They cover the logic in `js/project-access.js` and `js/reference-fit.js`.
 
+### Database tests
+
+`tests/sql/` runs the scripts in `docs/sql/` in [PGlite](https://pglite.dev) (Postgres inside Node) against a minimal stand-in for the Supabase schema (`schema.sql`), so nothing touches real data. They cover Follow-on copies keeping their students (issue #29). Set them up once, then run them:
+
+```sh
+cd tests/sql
+npm install
+npm test
+```
+
 ### Browser tests
 
 `tests/browser/` runs the real app in Chromium with Supabase replaced by an in-memory fake (`fake-supabase.js`), so nothing touches real data. They cover the Task editor and Revised Maps. Set them up once, then run them:

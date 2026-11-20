@@ -51,13 +51,40 @@ function followOnTaskSettings(
             earlier?.reference_path || null,
         allowed_tools: {
             ...(earlier?.allowed_tools || {}),
-            hazard: true
+            hazard: true,
+            hazards_only: true
         },
         allow_guests:
             earlier?.allow_guests !== false,
         follows_on_task_id:
             earlier?.id || null
     };
+}
+
+/*
+A Follow-on map is for Hazards only: students add and change Hazards, and
+cannot add to or change the Landmarks and Routes they copied. These are the
+tool switches that rule fixes; the Teacher cannot change them.
+*/
+const HAZARDS_ONLY_TOOLS = {
+    move: true,
+    hazard: true,
+    shapes: false,
+    freehand: false,
+    path: false,
+    road: false,
+    colour: false,
+    transform: false,
+    layers: false
+};
+
+// The tools students really get: a Hazards-only Task overrides its switches.
+function effectiveTools(
+    tools
+) {
+    return tools?.hazards_only
+        ? { ...tools, ...HAZARDS_ONLY_TOOLS }
+        : tools;
 }
 
 /*
@@ -324,6 +351,8 @@ if (
         handInSummary,
         orderTasksForList,
         isReferenceShared,
-        followOnStartStep
+        followOnStartStep,
+        HAZARDS_ONLY_TOOLS,
+        effectiveTools
     };
 }

@@ -814,6 +814,9 @@ const submissionList =
     $("submissionList");
 
 
+const hazardsOnlyNote =
+    $("hazardsOnlyNote");
+
 const permissionInputs = {
 
     move:
@@ -3387,6 +3390,11 @@ function applyToolPermissions() {
 
     downloadButton.hidden =
         !settings.download;
+    // Clearing would wipe the copied map too.
+    clearButton.hidden =
+        Boolean(
+            settings.hazards_only
+        );
 }
 
 
@@ -6295,7 +6303,10 @@ canvas.addEventListener(
                 );
 
 
-            if (shapeTarget) {
+            if (
+                shapeTarget &&
+                !allowedTools.hazards_only
+            ) {
 
                 const id =
                     Number(
@@ -6493,7 +6504,11 @@ canvas.addEventListener(
             }
 
 
-            if (routeTarget) {
+            // On a Hazards-only map, copied Landmarks and Routes can't be picked.
+            if (
+                routeTarget &&
+                !allowedTools.hazards_only
+            ) {
 
                 selectedItem = {
 
@@ -6536,7 +6551,10 @@ canvas.addEventListener(
             }
 
 
-            if (shapeTarget) {
+            if (
+                shapeTarget &&
+                !allowedTools.hazards_only
+            ) {
 
                 selectedItem = {
 
@@ -15546,7 +15564,7 @@ async function loadStudentProject(
         };
 
 
-        allowedTools = {
+        allowedTools = effectiveTools({
 
             ...DEFAULT_ALLOWED_TOOLS,
 
@@ -15554,7 +15572,7 @@ async function loadStudentProject(
                 project.allowed_tools ||
                 {}
             )
-        };
+        });
 
 
         const members =
@@ -20734,6 +20752,38 @@ async function selectTeacherTask(
         );
 
 
+    // A Follow-on Task is always Hazards only, so those switches are fixed.
+    const hazardsOnly =
+        Boolean(
+            task.follows_on_task_id
+        );
+
+    Object.entries(
+        HAZARDS_ONLY_TOOLS
+    )
+        .forEach(
+            ([key, on]) => {
+                const input =
+                    permissionInputs[key];
+
+                if (!input) {
+                    return;
+                }
+
+                input.disabled =
+                    hazardsOnly;
+
+                if (hazardsOnly) {
+                    input.checked =
+                        on;
+                }
+            }
+        );
+
+    hazardsOnlyNote.hidden =
+        !hazardsOnly;
+
+
     await loadTaskClassAssignments(
         task.id
     );
@@ -20834,6 +20884,12 @@ saveTaskSettingsButton.addEventListener(
 
     allowed.reference_crops =
         referenceCropsToSave();
+    if (
+        selectedTeacherTask?.follows_on_task_id
+    ) {
+        allowed.hazards_only =
+            true;
+    }
 
 
         const selectedClassIds =

@@ -1,9 +1,13 @@
 /*
-Reference Fit: how a Reference Map fills the student's map area.
+Reference Fit: how a Reference Map fills the student's map area on one kind of
+device.
 
-A Task's fit is "stretch", "keep" or "crop". A cropped Task can hold one crop
-per device: { x, y, zoom }, where x and y say which part of the image to show
-as percentages, and zoom is how far it is enlarged.
+A fit is "stretch", "keep" or "crop". A Task's allowed tools hold one fit per
+device in reference_fits; reference_fit is the fallback for any device without
+its own, which is how Tasks saved before per-device fits keep working. Each
+device can also hold a crop: { x, y, zoom }, where x and y say which part of the
+image to show as percentages, and zoom is how far it is enlarged. A crop only
+has an effect while that device's fit is "crop".
 */
 const REFERENCE_FIT_STYLES = {
     stretch: "fill",
@@ -139,8 +143,51 @@ function referenceImageStyle(
     };
 }
 
+function isReferenceFit(
+    fit
+) {
+    return Object.prototype.hasOwnProperty.call(
+        REFERENCE_FIT_STYLES,
+        fit
+    );
+}
+
 /*
-Which device's crop suits a student's map area. Closest shape wins, because
+The fit for one device: its own if it has one, otherwise the Task-wide fit,
+otherwise Stretch.
+*/
+function referenceFitForDevice(
+    tools,
+    deviceKey
+) {
+    const own =
+        tools?.reference_fits?.[deviceKey];
+
+    if (isReferenceFit(own)) {
+        return own;
+    }
+
+    return isReferenceFit(tools?.reference_fit)
+        ? tools.reference_fit
+        : "stretch";
+}
+
+// Styles for the Reference Map on one device, from a Task's allowed tools.
+function referenceStyleForDevice(
+    tools,
+    deviceKey
+) {
+    return referenceImageStyle(
+        referenceFitForDevice(
+            tools,
+            deviceKey
+        ),
+        tools?.reference_crops?.[deviceKey]
+    );
+}
+
+/*
+Which device's settings suit a student's map area. Closest shape wins, because
 other devices, such as an Android tablet, have no crop of their own.
 */
 function referenceDeviceForMap(
@@ -260,6 +307,26 @@ function dragReferenceCrop({
     };
 }
 
+// The crop after zooming by a factor, as from a pinch or the scroll wheel.
+function zoomReferenceCrop(
+    crop,
+    factor
+) {
+    const current =
+        normaliseReferenceCrop(crop);
+
+    return {
+        ...current,
+        zoom:
+            clampReferenceValue(
+                current.zoom * factor,
+                1,
+                REFERENCE_MAX_ZOOM,
+                current.zoom
+            )
+    };
+}
+
 if (
     typeof module !== "undefined"
 ) {
@@ -268,8 +335,12 @@ if (
         REFERENCE_MAX_ZOOM,
         normaliseReferenceCrop,
         isReferenceCropAdjusted,
+        isReferenceFit,
+        referenceFitForDevice,
+        referenceStyleForDevice,
         referenceImageStyle,
         referenceDeviceForMap,
-        dragReferenceCrop
+        dragReferenceCrop,
+        zoomReferenceCrop
     };
 }

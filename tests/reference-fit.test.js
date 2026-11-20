@@ -5,7 +5,10 @@ const {
     isReferenceCropAdjusted,
     referenceImageStyle,
     referenceDeviceForMap,
-    dragReferenceCrop
+    referenceFitForDevice,
+    referenceStyleForDevice,
+    dragReferenceCrop,
+    zoomReferenceCrop
 } = require("../js/reference-fit.js");
 
 test("Stretch and Keep shape ignore any crop", () => {
@@ -112,4 +115,35 @@ test("dragging keeps the zoom, and an image not loaded yet stays put", () => {
         dragReferenceCrop({ crop: { x: 20, y: 30, zoom: 2 }, dx: 50, dy: 50, frameWidth: 500, frameHeight: 500, imageWidth: 0, imageHeight: 0 }),
         { x: 20, y: 30, zoom: 2 }
     );
+});
+
+test("a device's own fit wins over the Task-wide fit", () => {
+    const tools = { reference_fit: "keep", reference_fits: { iphone: "crop" } };
+    assert.equal(referenceFitForDevice(tools, "iphone"), "crop");
+    assert.equal(referenceFitForDevice(tools, "computer"), "keep");
+});
+
+test("a Task saved before per-device fits uses its one fit everywhere", () => {
+    assert.equal(referenceFitForDevice({ reference_fit: "crop" }, "ipad-upright"), "crop");
+});
+
+test("unknown fits fall back to Stretch", () => {
+    assert.equal(referenceFitForDevice(undefined, "iphone"), "stretch");
+    assert.equal(referenceFitForDevice({ reference_fit: "nonsense", reference_fits: { iphone: "toString" } }, "iphone"), "stretch");
+});
+
+test("a device's crop only shows while that device is on Crop", () => {
+    const tools = {
+        reference_fits: { iphone: "crop", computer: "keep" },
+        reference_crops: { iphone: { x: 10, y: 20, zoom: 2 }, computer: { x: 90, y: 90, zoom: 3 } }
+    };
+    assert.equal(referenceStyleForDevice(tools, "iphone").objectPosition, "10% 20%");
+    assert.equal(referenceStyleForDevice(tools, "computer").transform, "");
+});
+
+test("pinch and scroll-wheel zoom stay within limits", () => {
+    assert.equal(zoomReferenceCrop({ x: 20, y: 30, zoom: 2 }, 1.5).zoom, 3);
+    assert.equal(zoomReferenceCrop({ zoom: 3 }, 10).zoom, 4);
+    assert.equal(zoomReferenceCrop({ zoom: 1.2 }, 0.1).zoom, 1);
+    assert.equal(zoomReferenceCrop({ x: 20, y: 30, zoom: 2 }, 1.5).x, 20);
 });

@@ -854,6 +854,10 @@ const permissionInputs = {
 const teacherReviewToolbar =
     $("teacherReviewToolbar");
 
+// Kept by reference: other scripts rebuild the Review toolbar's buttons.
+const downloadReviewMapButton =
+    $("downloadReviewMapButton");
+
 const annotationPenButton =
     $("annotationPenButton");
 
@@ -13198,6 +13202,17 @@ function applyReviewMarkingState() {
 
     reviewHint.hidden =
         !handedIn;
+
+    // Only a handed-in map can be downloaded to print. It goes back at the end
+    // of the toolbar if the toolbar was rebuilt.
+    if (!downloadReviewMapButton.isConnected) {
+        teacherReviewToolbar.appendChild(
+            downloadReviewMapButton
+        );
+    }
+
+    downloadReviewMapButton.hidden =
+        !handedIn;
 }
 
 
@@ -25141,7 +25156,22 @@ function createExportLegend(
     };
 }
 
-function buildExportSvg() {
+/*
+The map as one SVG to save or print: the map, North Arrow and Legend.
+  includeReview  the Teacher's red ink; by default only in the Review screen
+  heading        a line printed above the map, such as "Amir, Bea · TG1 · School map"
+*/
+const EXPORT_HEADING_HEIGHT =
+    64;
+
+function buildExportSvg(
+    {
+        includeReview =
+            appMode === "teacher-review",
+        heading =
+            ""
+    } = {}
+) {
 
     const clone =
         canvas.cloneNode(
@@ -25178,9 +25208,7 @@ function buildExportSvg() {
         );
 
 
-    if (
-        appMode !== "teacher-review"
-    ) {
+    if (!includeReview) {
 
         clone
             .querySelector(
@@ -25210,7 +25238,13 @@ function buildExportSvg() {
             CANVAS_WIDTH
         );
 
+    const headingHeight =
+        heading
+            ? EXPORT_HEADING_HEIGHT
+            : 0;
+
     const totalHeight =
+        headingHeight +
         CANVAS_HEIGHT +
         (legend?.height || 0);
 
@@ -25235,7 +25269,19 @@ function buildExportSvg() {
         totalHeight
     );
 
-    page.append(
+    // Everything below the heading, moved down to make room for it.
+    const body =
+        document.createElementNS(
+            SVG_NS,
+            "g"
+        );
+
+    body.setAttribute(
+        "transform",
+        `translate(0 ${headingHeight})`
+    );
+
+    body.append(
         clone,
         createExportNorthArrow(
             CANVAS_WIDTH - 94,
@@ -25244,10 +25290,23 @@ function buildExportSvg() {
     );
 
     if (legend) {
-        page.appendChild(
+        body.appendChild(
             legend.group
         );
     }
+
+    if (heading) {
+        page.appendChild(
+            createExportHeading(
+                heading,
+                CANVAS_WIDTH
+            )
+        );
+    }
+
+    page.appendChild(
+        body
+    );
 
     return new XMLSerializer()
         .serializeToString(
@@ -25256,153 +25315,530 @@ function buildExportSvg() {
 }
 
 
+// The line above a printed map: who drew it, their Class and the Task.
+function createExportHeading(
+    text,
+    width
+) {
+    const group =
+        document.createElementNS(
+            SVG_NS,
+            "g"
+        );
+
+    const band =
+        document.createElementNS(
+            SVG_NS,
+            "rect"
+        );
+
+    band.setAttribute("x", 0);
+    band.setAttribute("y", 0);
+    band.setAttribute("width", width);
+    band.setAttribute("height", EXPORT_HEADING_HEIGHT);
+    band.setAttribute("fill", "#ffffff");
+
+    const label =
+        document.createElementNS(
+            SVG_NS,
+            "text"
+        );
+
+    label.setAttribute("x", 28);
+    label.setAttribute("y", EXPORT_HEADING_HEIGHT / 2 + 10);
+    label.setAttribute("fill", "#1f2a24");
+    label.setAttribute("font-family", "Arial, Helvetica, sans-serif");
+    label.setAttribute("font-size", 28);
+    label.setAttribute("font-weight", 700);
+    label.setAttribute("class", "export-heading");
+
+    label.textContent =
+        text;
+
+    group.append(
+        band,
+        label
+    );
+
+    return group;
+}
+
 function showExportFailure() {
     statusBar.textContent =
         "Could not download the map. Please try again.";
 }
 
-async function downloadMapPNG() {
+/*
+Turns a map SVG into an image file on a white background.
+type is "image/png" or "image/jpeg". Resolves to a Blob, or rejects.
+*/
+function renderMapImage(
+    svgText,
+    type =
+        "image/png"
+) {
+    return new Promise(
+        (resolve, reject) => {
+            const url =
+                URL.createObjectURL(
+                    new Blob(
+                        [svgText],
+                        {
+                            type:
+                                "image/svg+xml;charset=utf-8"
+                        }
+                    )
+                );
 
-    const svgText =
-        buildExportSvg();
+            const image =
+                new Image();
 
+            image.onload =
+                () => {
+                    URL.revokeObjectURL(
+                        url
+                    );
 
-    const blob =
-        new Blob(
+                    try {
+                        const exportCanvas =
+                            document.createElement(
+                                "canvas"
+                            );
 
-            [svgText],
+                        exportCanvas.width =
+                            image.naturalWidth;
 
-            {
-                type:
-                    "image/svg+xml;charset=utf-8"
-            }
+                        exportCanvas.height =
+                            image.naturalHeight;
+
+                        const context =
+                            exportCanvas.getContext(
+                                "2d"
+                            );
+
+                        context.fillStyle =
+                            "#fff";
+
+                        context.fillRect(
+                            0,
+                            0,
+                            exportCanvas.width,
+                            exportCanvas.height
+                        );
+
+                        context.drawImage(
+                            image,
+                            0,
+                            0
+                        );
+
+                        exportCanvas.toBlob(
+                            blob =>
+                                blob
+                                    ? resolve(blob)
+                                    : reject(new Error("The map could not be turned into an image.")),
+                            type,
+                            0.92
+                        );
+                    }
+
+                    catch (error) {
+                        reject(error);
+                    }
+                };
+
+            image.onerror =
+                () => {
+                    URL.revokeObjectURL(
+                        url
+                    );
+
+                    reject(
+                        new Error("The map could not be drawn.")
+                    );
+                };
+
+            image.src =
+                url;
+        }
+    );
+}
+
+// Saves a file to the device's downloads.
+function saveFile(
+    blob,
+    fileName
+) {
+    const anchor =
+        document.createElement(
+            "a"
         );
 
-
-    const url =
+    anchor.href =
         URL.createObjectURL(
             blob
         );
 
+    anchor.download =
+        fileName;
 
-    const image =
-        new Image();
+    anchor.click();
 
-
-    image.onload =
-        () => {
-
-            const exportCanvas =
-                document.createElement(
-                    "canvas"
-                );
-
-
-            exportCanvas.width =
-                image.naturalWidth;
-
-            exportCanvas.height =
-                image.naturalHeight;
-
-
-            const context =
-                exportCanvas.getContext(
-                    "2d"
-                );
-
-
-            context.fillStyle =
-                "#fff";
-
-
-            context.fillRect(
-                0,
-                0,
-                exportCanvas.width,
-                exportCanvas.height
-            );
-
-
-            context.drawImage(
-                image,
-                0,
-                0
-            );
-
-
+    setTimeout(
+        () =>
             URL.revokeObjectURL(
-                url
-            );
+                anchor.href
+            ),
+        500
+    );
+}
 
+async function downloadMapPNG() {
+    try {
+        saveFile(
+            await renderMapImage(
+                buildExportSvg()
+            ),
+            `${
+                safeFileName(
+                    studentInfo.name ||
+                    "OE-map"
+                )
+            }.png`
+        );
+    }
 
-            try {
-                exportCanvas.toBlob(
-                png => {
-                    if (!png) {
-                        showExportFailure();
-                        return;
+    catch (error) {
+        console.error(
+            "Could not export the map:",
+            error
+        );
+
+        showExportFailure();
+    }
+}
+
+// jsPDF is loaded only when a PDF is asked for, so the page stays light.
+const JSPDF_URL =
+    "https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js";
+
+const loadedScripts =
+    new Map();
+
+function loadScriptOnce(
+    url
+) {
+    if (!loadedScripts.has(url)) {
+        loadedScripts.set(
+            url,
+            new Promise(
+                (resolve, reject) => {
+                    const script =
+                        document.createElement("script");
+
+                    script.src =
+                        url;
+
+                    script.onload =
+                        resolve;
+
+                    script.onerror =
+                        () => {
+                            loadedScripts.delete(url);
+                            reject(
+                                new Error("The PDF maker could not be loaded. Check the internet connection and try again.")
+                            );
+                        };
+
+                    document.head.appendChild(script);
+                }
+            )
+        );
+    }
+
+    return loadedScripts.get(url);
+}
+
+function blobToDataUrl(
+    blob
+) {
+    return new Promise(
+        (resolve, reject) => {
+            const reader =
+                new FileReader();
+
+            reader.onload =
+                () => resolve(reader.result);
+
+            reader.onerror =
+                () => reject(reader.error);
+
+            reader.readAsDataURL(blob);
+        }
+    );
+}
+
+function imageSize(
+    dataUrl
+) {
+    return new Promise(
+        (resolve, reject) => {
+            const image =
+                new Image();
+
+            image.onload =
+                () => resolve({
+                    width: image.naturalWidth,
+                    height: image.naturalHeight
+                });
+
+            image.onerror =
+                () => reject(new Error("The map could not be drawn."));
+
+            image.src =
+                dataUrl;
+        }
+    );
+}
+
+/*
+A map SVG as a file in the chosen format: "png", "jpeg" or "pdf".
+A PDF is one A4 landscape page with the map fitted to it.
+*/
+async function mapFileFor(
+    svgText,
+    format
+) {
+    const chosen =
+        MAP_FORMATS[format];
+
+    if (!chosen) {
+        throw new Error(`Unknown format: ${format}`);
+    }
+
+    if (format !== "pdf") {
+        return renderMapImage(
+            svgText,
+            chosen.type
+        );
+    }
+
+    await loadScriptOnce(
+        JSPDF_URL
+    );
+
+    const picture =
+        await blobToDataUrl(
+            await renderMapImage(
+                svgText,
+                "image/png"
+            )
+        );
+
+    const size =
+        await imageSize(
+            picture
+        );
+
+    const place =
+        a4LandscapePlacement(
+            size.width,
+            size.height
+        );
+
+    const pdf =
+        new window.jspdf.jsPDF({
+            orientation: "landscape",
+            unit: "mm",
+            format: "a4"
+        });
+
+    pdf.addImage(
+        picture,
+        "PNG",
+        place.x,
+        place.y,
+        place.width,
+        place.height
+    );
+
+    return pdf.output("blob");
+}
+
+/* ---------- Choosing PNG, JPEG or PDF ---------- */
+
+const mapFormatModal =
+    $("mapFormatModal");
+
+const mapFormatOptions =
+    [...mapFormatModal.querySelectorAll("[data-format]")];
+
+const mapFormatError =
+    $("mapFormatError");
+
+// What happens when a format is chosen; set each time the window opens.
+let onMapFormatChosen =
+    null;
+
+function closeMapFormatModal() {
+    mapFormatModal.hidden =
+        true;
+
+    onMapFormatChosen =
+        null;
+
+    document.body.classList.remove(
+        "modal-open"
+    );
+}
+
+/*
+Opens the window. save(format) makes and saves the file; the window stays
+open with a message if it fails, and closes once it is saved.
+*/
+function openMapFormatModal(
+    description,
+    save
+) {
+    $("mapFormatFor").textContent =
+        description;
+
+    mapFormatError.hidden =
+        true;
+
+    mapFormatOptions.forEach(
+        option => {
+            option.disabled =
+                false;
+        }
+    );
+
+    onMapFormatChosen =
+        save;
+
+    mapFormatModal.hidden =
+        false;
+
+    document.body.classList.add(
+        "modal-open"
+    );
+
+    mapFormatOptions[0].focus();
+}
+
+mapFormatOptions.forEach(
+    option =>
+        option.addEventListener(
+            "click",
+            async () => {
+                const save =
+                    onMapFormatChosen;
+
+                if (!save) {
+                    return;
+                }
+
+                mapFormatOptions.forEach(
+                    item => {
+                        item.disabled =
+                            true;
                     }
+                );
 
+                mapFormatError.hidden =
+                    true;
 
-                    const anchor =
-                        document.createElement(
-                            "a"
-                        );
+                try {
+                    await save(
+                        option.dataset.format
+                    );
 
+                    closeMapFormatModal();
+                }
 
-                    anchor.href =
-                        URL.createObjectURL(
-                            png
-                        );
+                catch (error) {
+                    console.error(
+                        "Could not download the map:",
+                        error
+                    );
 
+                    mapFormatError.textContent =
+                        error.message ||
+                        "Could not download this map. Please try again.";
 
-                    anchor.download =
-                        `${
-                            safeFileName(
-                                studentInfo.name ||
-                                "OE-map"
-                            )
-                        }.png`;
+                    mapFormatError.hidden =
+                        false;
 
-
-                    anchor.click();
-
-
-                    setTimeout(
-
-                        () =>
-                            URL.revokeObjectURL(
-                                anchor.href
-                            ),
-
-                        500
+                    mapFormatOptions.forEach(
+                        item => {
+                            item.disabled =
+                                false;
+                        }
                     );
                 }
-            );
             }
-            catch (error) {
-                console.error(
-                    "Could not export the map:",
-                    error
-                );
+        )
+);
 
-                showExportFailure();
-            }
-        };
+$("cancelMapFormatButton").addEventListener(
+    "click",
+    closeMapFormatModal
+);
 
+/* ---------- Teacher: Download this map (Review screen) ---------- */
 
-    image.onerror =
-        () => {
-            URL.revokeObjectURL(
-                url
-            );
+// The students' map exactly as they drew it, with no Review, in one format.
+async function downloadReviewMap(
+    format
+) {
+    if (
+        !canDownloadMap(
+            reviewSubmission
+        )
+    ) {
+        return;
+    }
 
-            showExportFailure();
-        };
+    const label =
+        printableMapLabel(
+            reviewSubmission,
+            currentTask?.title
+        );
 
-    image.src =
-        url;
+    saveFile(
+        await mapFileFor(
+            buildExportSvg({
+                includeReview:
+                    false,
+                heading:
+                    label.heading
+            }),
+            format
+        ),
+        `${label.fileBase}.${MAP_FORMATS[format].extension}`
+    );
 }
+
+downloadReviewMapButton.addEventListener(
+    "click",
+    () => {
+        if (
+            !canDownloadMap(
+                reviewSubmission
+            )
+        ) {
+            return;
+        }
+
+        openMapFormatModal(
+            printableMapLabel(
+                reviewSubmission,
+                currentTask?.title
+            ).heading,
+            downloadReviewMap
+        );
+    }
+);
 
 
 downloadButton.addEventListener(

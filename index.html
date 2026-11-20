@@ -11,7 +11,7 @@ href="assets/logo.svg"
 >
 <link
 rel="stylesheet"
-href="css/style.css?v=20261120b"
+href="css/style.css?v=20261120d"
 >
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -786,6 +786,16 @@ class="review-tool"
 type="button"
 >
 Clear Ink
+</button>
+
+<button
+id="downloadReviewMapButton"
+class="review-tool"
+type="button"
+title="Save this map to print, without your feedback or red ink"
+hidden
+>
+⬇ Download this map
 </button>
 
 </div>
@@ -2135,6 +2145,68 @@ Create Guest Account
 </div>
 
 <div
+id="mapFormatModal"
+class="modal-overlay"
+hidden
+>
+
+<div class="object-modal map-format-card" role="dialog" aria-modal="true" aria-labelledby="mapFormatTitle">
+
+<div class="modal-step-label">
+DOWNLOAD
+</div>
+
+<h2 id="mapFormatTitle">
+Download this map
+</h2>
+
+<p id="mapFormatFor" class="modal-description"></p>
+
+<div class="map-format-options">
+
+<button class="map-format-option" type="button" data-format="png">
+<strong>PNG</strong>
+<span>Sharpest picture, best for slides</span>
+</button>
+
+<button class="map-format-option" type="button" data-format="jpeg">
+<strong>JPEG</strong>
+<span>Smaller picture file</span>
+</button>
+
+<button class="map-format-option" type="button" data-format="pdf">
+<strong>PDF</strong>
+<span>One A4 page, ready to print</span>
+</button>
+
+</div>
+
+<p class="map-format-note">
+Your feedback and red ink are not included.
+</p>
+
+<div
+id="mapFormatError"
+class="modal-error"
+hidden
+></div>
+
+<div class="modal-actions">
+
+<button
+id="cancelMapFormatButton"
+class="modal-secondary-button"
+type="button"
+>
+Cancel
+</button>
+
+</div>
+
+</div>
+</div>
+
+<div
 id="earlierMapModal"
 class="modal-overlay"
 hidden
@@ -2943,12 +3015,13 @@ Save
 </div>
 
 <!-- Change ?v= on these files whenever they change, so browsers stop using old copies. -->
-<script src="js/project-access.js?v=20261120b"></script>
-<script src="js/reference-fit.js?v=20261120b"></script>
-<script src="js/follow-on.js?v=20261120b"></script>
-<script src="js/app.js?v=20261120b"></script>
-<script src="js/map-tools.js?v=20261120b"></script>
-<script src="js/revised-map.js?v=20261120b"></script>
-<script src="js/tutorial.js?v=20261120b"></script>
+<script src="js/project-access.js?v=20261120d"></script>
+<script src="js/reference-fit.js?v=20261120d"></script>
+<script src="js/follow-on.js?v=20261120d"></script>
+<script src="js/map-downloads.js?v=20261120d"></script>
+<script src="js/app.js?v=20261120d"></script>
+<script src="js/map-tools.js?v=20261120d"></script>
+<script src="js/revised-map.js?v=20261120d"></script>
+<script src="js/tutorial.js?v=20261120d"></script>
 </body>
 </html>

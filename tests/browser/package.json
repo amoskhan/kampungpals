@@ -1,0 +1,11 @@
+{
+  "name": "kampungpals-browser-tests",
+  "private": true,
+  "description": "Browser tests: the real app in Chromium with Supabase faked.",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.65.1"
+  }
+}

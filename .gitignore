@@ -1,2 +1,7 @@
 # Google sign-in secrets: never commit
 client_secret_*.json
+
+# Browser tests
+tests/browser/node_modules/
+tests/browser/test-results/
+tests/browser/playwright-report/

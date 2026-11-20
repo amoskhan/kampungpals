@@ -4,42 +4,49 @@ for it starts as a copy of the map that Group made for the earlier Task.
 See docs/specs/follow-on-tasks.md.
 */
 
-const FOLLOW_ON_PART =
-    /\s+—\s+part\s+(\d+)\s*$/i;
+// What students do in a Follow-on Task, unless the Teacher writes otherwise.
+const FOLLOW_ON_INSTRUCTIONS =
+    "Find places on your map that could be dangerous. Mark each one with the Hazard tool (⚠) and say why.";
 
-// "School map" → "School map — part 2"; "School map — part 2" → "… — part 3".
-function nextFollowOnTitle(
+// "School map" → "School map — Hazards".
+function followOnTitle(
     title
 ) {
     const base =
         String(title || "").trim() ||
         "Untitled Task";
 
-    const match =
-        base.match(FOLLOW_ON_PART);
+    return `${base} — Hazards`;
+}
 
-    if (match) {
-        return base.replace(
-            FOLLOW_ON_PART,
-            ` — part ${Number(match[1]) + 1}`
-        );
-    }
-
-    return `${base} — part 2`;
+// Only a lesson-1 Task can have a Follow-on Task, not a Follow-on Task itself.
+function canCreateFollowOn(
+    task
+) {
+    return Boolean(task) &&
+        !task.follows_on_task_id;
 }
 
 /*
 The settings a new Follow-on Task starts with: the earlier Task's tools,
 Reference Map and Reference Fit on every device, with the Hazard tool on.
+The Teacher's own title and instructions, if given, replace the suggestions.
 */
 function followOnTaskSettings(
-    earlier
+    earlier,
+    chosen
 ) {
+    const title =
+        String(chosen?.title ?? "").trim();
+
     return {
         title:
-            nextFollowOnTitle(earlier?.title),
+            title ||
+            followOnTitle(earlier?.title),
         instructions:
-            "",
+            chosen && chosen.instructions != null
+                ? String(chosen.instructions).trim()
+                : FOLLOW_ON_INSTRUCTIONS,
         reference_path:
             earlier?.reference_path || null,
         allowed_tools: {
@@ -51,6 +58,125 @@ function followOnTaskSettings(
         follows_on_task_id:
             earlier?.id || null
     };
+}
+
+/*
+Who has handed in their map for a Task, for each Class:
+  handedInMaps / handedInStudents        — Submitted or Marked
+  notHandedIn (names per map) / notHandedInStudents — still a draft
+  noMap                                  — on the Roster, with no Project ("No map (absent?)")
+A student belongs to a map through its Group members or as its main student.
+Where a student has more than one map, the newest counts. Guests are never counted.
+*/
+function handInSummary({
+    classes,
+    roster,
+    projects,
+    members
+}) {
+    const projectById =
+        new Map(
+            (projects || []).map(
+                project => [project.id, project]
+            )
+        );
+
+    const latestFor =
+        new Map();
+
+    const link =
+        (studentId, project) => {
+            if (!studentId || !project) {
+                return;
+            }
+
+            const current =
+                latestFor.get(studentId);
+
+            if (
+                !current ||
+                Number(project.submission_number || 1) >
+                    Number(current.submission_number || 1)
+            ) {
+                latestFor.set(studentId, project);
+            }
+        };
+
+    (members || []).forEach(
+        member =>
+            link(
+                member.student_id,
+                projectById.get(member.submission_id)
+            )
+    );
+
+    (projects || []).forEach(
+        project =>
+            link(
+                project.primary_student_id,
+                project
+            )
+    );
+
+    const byRegister =
+        (a, b) =>
+            Number(a.register_no || 0) - Number(b.register_no || 0) ||
+            String(a.student_name || "").localeCompare(String(b.student_name || ""));
+
+    return (classes || []).map(
+        item => {
+            const students =
+                (roster || [])
+                    .filter(student => student.class_id === item.id)
+                    .sort(byRegister);
+
+            const handedIn = new Set();
+            const notHandedIn = new Map();
+            const noMap = [];
+            let handedInStudents = 0;
+            let notHandedInStudents = 0;
+
+            students.forEach(
+                student => {
+                    const project =
+                        latestFor.get(student.id);
+
+                    if (!project) {
+                        noMap.push(student.student_name);
+                        return;
+                    }
+
+                    if (project.status === "draft") {
+                        notHandedInStudents += 1;
+
+                        if (!notHandedIn.has(project.id)) {
+                            notHandedIn.set(project.id, []);
+                        }
+
+                        notHandedIn.get(project.id).push(student.student_name);
+                        return;
+                    }
+
+                    handedInStudents += 1;
+                    handedIn.add(project.id);
+                }
+            );
+
+            return {
+                classId:
+                    item.id,
+                className:
+                    item.name,
+                handedInMaps:
+                    handedIn.size,
+                handedInStudents,
+                notHandedIn:
+                    [...notHandedIn.values()],
+                notHandedInStudents,
+                noMap
+            };
+        }
+    );
 }
 
 /*
@@ -191,8 +317,11 @@ if (
     typeof module !== "undefined"
 ) {
     module.exports = {
-        nextFollowOnTitle,
+        FOLLOW_ON_INSTRUCTIONS,
+        followOnTitle,
+        canCreateFollowOn,
         followOnTaskSettings,
+        handInSummary,
         orderTasksForList,
         isReferenceShared,
         followOnStartStep

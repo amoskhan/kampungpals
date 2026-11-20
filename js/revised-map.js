@@ -1337,6 +1337,10 @@ Enter a task code above to open a task.
             review
         );
 
+        // Shown for reference only: the Revised Map itself is not Marked.
+        studentReviewIsForEarlierProject =
+            true;
+
         annotations =
             [];
 

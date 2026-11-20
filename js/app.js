@@ -1102,6 +1102,13 @@ let reviewSubmission =
 let studentReviewData =
     null;
 
+/*
+True while the Review on screen belongs to the earlier Project, shown for
+reference on a Revised Map. It does not make the open Project Marked.
+*/
+let studentReviewIsForEarlierProject =
+    false;
+
 let studentReviewVisible =
     true;
 
@@ -1536,7 +1543,8 @@ function studentProjectAccess() {
         hasReview:
             Boolean(
                 studentReviewData
-            ),
+            ) &&
+            !studentReviewIsForEarlierProject,
         isEditor:
             !studentReadOnly &&
             editLockOwned
@@ -12652,6 +12660,9 @@ function resetStudentReviewState() {
     studentReviewData =
         null;
 
+    studentReviewIsForEarlierProject =
+        false;
+
 
     studentReviewVisible =
         true;
@@ -12702,6 +12713,9 @@ function applyStudentReviewSnapshot(
 
     studentReviewData =
         review;
+
+    studentReviewIsForEarlierProject =
+        false;
 
 
     studentReviewVisible =

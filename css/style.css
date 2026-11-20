@@ -9113,3 +9113,123 @@ text-align:center;
 padding:14px 8px 20px;
 }
 }
+
+/* =========================================================
+FOLLOW-ON TASKS
+========================================================= */
+.teacher-task-item.is-follow-on {
+margin-left:calc(var(--follow-on-depth, 1) * 16px);
+border-left:3px solid var(--forest);
+}
+
+.teacher-task-item .follow-on-mark {
+display:inline;
+color:var(--forest);
+font-weight:900;
+}
+
+.follow-on-note {
+margin:-4px 0 12px;
+color:var(--forest-dark);
+font-size:13px;
+font-weight:700;
+}
+
+.follow-on-note[hidden] {
+display:none;
+}
+
+.follow-on-manager {
+display:flex;
+flex-wrap:wrap;
+align-items:center;
+justify-content:space-between;
+gap:12px;
+}
+
+.follow-on-manager > div {
+flex:1 1 320px;
+}
+
+.follow-on-points {
+margin:4px 0 16px;
+padding-left:20px;
+color:var(--ink);
+font-size:14px;
+line-height:1.45;
+}
+
+.follow-on-points li + li {
+margin-top:6px;
+}
+
+.follow-on-links {
+display:flex;
+flex-wrap:wrap;
+gap:8px;
+margin-top:8px;
+}
+
+.follow-on-links[hidden] {
+display:none;
+}
+
+.follow-on-link {
+width:auto;
+min-height:34px;
+margin:0;
+padding:6px 12px;
+border:1px solid var(--forest);
+border-radius:999px;
+background:#fff;
+color:var(--forest-dark);
+font-size:13px;
+font-weight:700;
+cursor:pointer;
+}
+
+.follow-on-link:hover {
+background:#edf4ee;
+}
+
+.follow-on-link.is-primary {
+background:var(--forest);
+color:#fff;
+}
+
+.follow-on-link.is-primary:hover {
+background:var(--forest-dark);
+}
+
+.earlier-map-card {
+width:min(880px,100%);
+}
+
+.earlier-map-preview {
+margin-top:12px;
+overflow:hidden;
+border:1px solid var(--line);
+border-radius:10px;
+background:#fff;
+aspect-ratio:1600 / 675;
+}
+
+.earlier-map-preview svg {
+display:block;
+width:100%;
+height:100%;
+}
+
+.earlier-map-feedback {
+margin-top:12px;
+padding:10px 12px;
+border-left:4px solid #d94b42;
+border-radius:6px;
+background:#fbf1ef;
+font-size:14px;
+}
+
+.earlier-map-feedback p {
+margin:4px 0 0;
+white-space:pre-wrap;
+}

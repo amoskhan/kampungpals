@@ -3,7 +3,8 @@ const { openApp, openProjectAsLearner } = require("./app");
 
 /*
 A student's Marked map with no Revised Map yet. arg.verdict is what the
-database says its Review is (undefined: the database step hasn't been run).
+database says its Review is (undefined: the database step hasn't been run);
+arg.followOn says a Follow-on Task exists for its Task.
 */
 function setUpMarkedMap(arg) {
     const project = {
@@ -28,6 +29,8 @@ function setUpMarkedMap(arg) {
         claim_submission_edit_lock: () => [{ acquired: true }],
         renew_submission_edit_lock: () => [{ acquired: true }]
     });
+
+    window.fakeSupabase.rpc.task_has_follow_on = () => Boolean(arg.followOn);
 
     if (arg.verdict !== undefined) {
         window.fakeSupabase.rpc.review_verdict = () => arg.verdict;
@@ -64,4 +67,15 @@ test("an Approved map doesn't offer a Revised Map", async ({ page }) => {
 test("before the database step, a Marked map still offers a Revised Map", async ({ page }) => {
     await openMarkedMap(page, undefined);
     await expect(startButton(page)).toBeVisible();
+});
+
+test("once the class has a Follow-on Task, a Returned map no longer offers a Revised Map", async ({ page }) => {
+    await openApp(page, setUpMarkedMap, { verdict: "returned", followOn: true });
+    await openProjectAsLearner(page, "original");
+    await expect.poll(() =>
+        page.evaluate(() => window.fakeSupabase.calls.some(call => call.rpc === "task_has_follow_on"))
+    ).toBe(true);
+    await page.waitForTimeout(300);
+
+    await expect(startButton(page)).toBeHidden();
 });

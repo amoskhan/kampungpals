@@ -59,6 +59,24 @@ test("maps that aren't Revised Maps are not affected", async () => {
     await db.query("insert into submissions (task_id, status, class_name) values ($1, 'draft', 'TG1')", [task]);
 });
 
+test("no new Revised Map once a Follow-on Task exists", async () => {
+    const { db, task, startRevisedMap } = await lesson("returned");
+    const { id: followOn } = await one(db, "insert into tasks (task_code) values ('HAZ1') returning id");
+    await db.query("update tasks set follows_on_task_id = $1 where id = $2", [task, followOn]);
+
+    await assert.rejects(startRevisedMap(), /FOLLOW_ON_TASK_EXISTS/);
+});
+
+test("a student can tell whether their Task has a Follow-on Task", async () => {
+    const { db, task, original } = await lesson("returned");
+    const has = async () => (await one(db, "select task_has_follow_on($1) as v", [original])).v;
+    assert.equal(await has(), false);
+
+    const { id: followOn } = await one(db, "insert into tasks (task_code) values ('HAZ1') returning id");
+    await db.query("update tasks set follows_on_task_id = $1 where id = $2", [task, followOn]);
+    assert.equal(await has(), true);
+});
+
 test("check.sql passes, and undo.sql lets any map have a Revised Map again", async () => {
     const { db, startRevisedMap } = await lesson("approved");
     for (const row of (await db.query(CHECK)).rows) {

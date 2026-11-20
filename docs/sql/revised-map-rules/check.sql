@@ -8,4 +8,11 @@ select 'the Revised Map guard is on' as item,
 union all
 select 'only Returned maps can have a Revised Map',
        pg_get_functiondef('public.oe_guard_revised_map()'::regprocedure)
-         ilike '%REVISED_MAP_NOT_RETURNED%';
+         ilike '%REVISED_MAP_NOT_RETURNED%'
+union all
+select 'no Revised Map once a Follow-on Task exists',
+       pg_get_functiondef('public.oe_guard_revised_map()'::regprocedure)
+         ilike '%FOLLOW_ON_TASK_EXISTS%'
+union all
+select 'students can call task_has_follow_on',
+       has_function_privilege('authenticated', 'public.task_has_follow_on(uuid)', 'execute');

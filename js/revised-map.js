@@ -684,6 +684,66 @@
 
         undefined;
 
+    // Whether the class has moved on to a Follow-on Task of this map's Task.
+    let currentTaskHasFollowOn =
+
+        false;
+
+    async function fetchTaskHasFollowOn(
+
+        submissionId
+
+    ) {
+
+        try {
+
+            const { data, error } =
+
+                await sb.rpc(
+
+                    "task_has_follow_on",
+
+                    {
+
+                        p_submission_id:
+
+                            submissionId
+
+                    }
+
+                );
+
+            return !error &&
+
+                (
+
+                    Array.isArray(
+
+                        data
+
+                    )
+
+                        ? data[0]
+
+                        : data
+
+                ) === true;
+
+        }
+
+        catch (
+
+            error
+
+        ) {
+
+            // Before the database step is run, nothing is closed.
+            return false;
+
+        }
+
+    }
+
     async function fetchReviewVerdict(
 
         submissionId
@@ -1694,11 +1754,19 @@ Enter a task code above to open a task.
                 ?.correction_submission_id ||
             null;
 
-        // Only a Returned map can have a Revised Map; one already started opens.
+        /*
+        Only a Returned map can have a Revised Map, and not once the class has
+        moved on to a Follow-on Task. One already started still opens.
+        */
         if (
             !correctionId &&
-            currentReviewVerdict !== undefined &&
-            currentReviewVerdict !== "returned"
+            (
+                currentTaskHasFollowOn ||
+                (
+                    currentReviewVerdict !== undefined &&
+                    currentReviewVerdict !== "returned"
+                )
+            )
         ) {
             startCorrectionsButton.hidden =
                 true;
@@ -1889,10 +1957,15 @@ Enter a task code above to open a task.
             return;
         }
 
-        currentReviewVerdict =
-            await fetchReviewVerdict(
-                submissionId
-            );
+        [currentReviewVerdict, currentTaskHasFollowOn] =
+            await Promise.all([
+                fetchReviewVerdict(
+                    submissionId
+                ),
+                fetchTaskHasFollowOn(
+                    submissionId
+                )
+            ]);
 
         if (
             requestId !==

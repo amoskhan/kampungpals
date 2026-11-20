@@ -19,7 +19,7 @@ An activity a teacher sets for one or more Classes, with instructions, the tools
 _Avoid_: Activity, assignment, lesson
 
 **Follow-on Task**:
-A Task that builds on one earlier Task, which cannot itself be a Follow-on Task. Each Project for it starts as a copy of the map the same students made for the earlier Task, which stays exactly as it was, along with its Review. The two Projects are separate from then on: each is Submitted and Marked on its own.
+A Task in which students add Hazards to a finished map. It builds on one earlier Task, which cannot itself be a Follow-on Task, and a Teacher can create it only once every original Project for the earlier Task is Marked and every Revised Map started for it is Submitted. Each Project for it starts as a copy of the latest of these maps: their Revised Map if they started one, otherwise their original Project, even if it was Returned. Students can only add and change Hazards on it; the Landmarks and Routes they copied cannot be changed. The earlier map stays exactly as it was, along with its Review, and no new Revised Map can be started for the earlier Task once the Follow-on Task exists. The two Projects are separate from then on: each is Submitted and Marked on its own. A student who had no Project in the earlier Task takes part only by joining a Group that has one; a Guest without an earlier map cannot take part.
 _Avoid_: Task 2, part 2, continuation, resubmission
 
 **Task Code**:
@@ -61,11 +61,11 @@ The one map a student, or a Group of students, builds for one Task. It exists fr
 _Avoid_: Submission, map file, attempt
 
 **Submitted**:
-The state of a Project that has been handed to the teacher. Any one member of the Group can submit on behalf of all of them. Submitting is final for students: they can no longer change the Project. A teacher can also submit a Group's Project for them.
+The state of a Project that has been handed to the teacher. Any one member of the Group can submit on behalf of all of them. Submitting is final for students: they can no longer change the Project. A teacher can also submit a Group's Project for them, or every Project in a Class still being drawn, at once.
 _Avoid_: Final, completed
 
 **Group**:
-The set of students from one Class sharing one Project for one Task, chosen by whichever member opens the Task first. A student working alone is a Group of one. Groups do not carry over between Tasks, except into a Follow-on Task, which keeps the earlier Task's Groups. No one leaves a Group there, but a student who had no Project in the earlier Task can be added to one.
+The set of students from one Class sharing one Project for one Task, chosen by whichever member opens the Task first. A student working alone is a Group of one. Groups do not carry over between Tasks, except into a Follow-on Task, which keeps the earlier Task's Groups. No one leaves a Group there, and a student who had no Project in the earlier Task must be added to one to take part.
 _Avoid_: Team, pair
 
 **No map**:
@@ -121,15 +121,23 @@ A page, for Teachers only, showing the latest Project from each student or Group
 _Avoid_: Overview, grid, wall, thumbnails, review all
 
 **Review**:
-A teacher's written feedback together with their free-form red-pen ink, laid over one Submitted Project without changing the student's map. A teacher can watch a Project while it is being drawn but can only Review it once it is Submitted. A Project has at most one Review; the teacher saves it, and saving again updates it rather than adding another. Students see a Review only once it is saved.
+A teacher's verdict on one Submitted Project, either Approved or Returned, with optional written feedback and free-form red-pen ink laid over it without changing the student's map. A teacher can watch a Project while it is being drawn but can only Review it once it is Submitted. A Project has at most one Review; the teacher saves it, and saving again updates it rather than adding another. Students see a Review only once it is saved.
 _Avoid_: Marking, comments, annotation, submitting (for teachers)
 
 **Marked**:
-The state of a Project once a teacher has saved a Review for it. A Marked Project is final: students can read the Review but change nothing. There is no hidden draft Review.
-_Avoid_: Graded, checked, returned
+The state of a Project once a teacher has saved a Review for it, whether Approved or Returned. A Marked Project is final: students can read the Review but change nothing. There is no hidden draft Review.
+_Avoid_: Graded, checked
+
+**Approved**:
+A Review saying the map needs no changes. Comments and red pen are optional. An Approved map cannot have a Revised Map. A Teacher can Approve every handed-in map in a Class at once.
+_Avoid_: Passed, accepted, OK
+
+**Returned**:
+A Review sending the map back with feedback because a Revised Map is expected. A Teacher can change a Review between Approved and Returned, except that a Returned map whose Revised Map has been started stays Returned.
+_Avoid_: Rejected, failed, sent for corrections
 
 **Revised Map**:
-A separate Project that lets a student or Group redo their work after it is Marked, using the Teacher's Review. The Marked Project and its Review stay exactly as they were. Any student with a Marked Project can start it without asking the Teacher. A Project can have only one, and it cannot have one of its own. It is Submitted and Marked on its own.
+A separate Project that lets a student or Group redo their work after it is Returned, using the Teacher's Review. The Returned Project and its Review stay exactly as they were. Only a Returned Project can have one; an Approved Project cannot. A Project can have only one, and it cannot have one of its own. It is Submitted and Marked on its own.
 _Avoid_: Corrected Work, Corrections, resubmission, redo, Submission 2
 
 ### Improving the app

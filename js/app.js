@@ -15417,6 +15417,17 @@ async function loadStudentProject(
     hideProjectsNotice();
 
 
+    // Opening a map, not reloading the one already open.
+    if (
+        currentSubmission?.id !==
+        submissionId
+    ) {
+        await fillEmptyFollowOnProject(
+            submissionId
+        );
+    }
+
+
     try {
 
         let result;
@@ -19997,8 +20008,14 @@ const createFollowOnButton =
 const followOnModal =
     $("followOnModal");
 
-const followOnNewTitle =
-    $("followOnNewTitle");
+const followOnTitleInput =
+    $("followOnTitleInput");
+
+const followOnInstructionsInput =
+    $("followOnInstructionsInput");
+
+const followOnHandIn =
+    $("followOnHandIn");
 
 const followOnEarlierTitle =
     $("followOnEarlierTitle");
@@ -20030,6 +20047,10 @@ function showTeacherTaskFollowsOn(
     teacherTaskFollowsOn.hidden =
         !task?.follows_on_task_id;
 
+    // Only a lesson-1 Task can have a Follow-on Task.
+    $("followOnManager").hidden =
+        !canCreateFollowOn(task);
+
     teacherTaskFollowsOn.textContent =
         earlier
             ? `Follows on from: ${earlier.title || "Untitled Task"}`
@@ -20056,10 +20077,16 @@ createFollowOnButton.addEventListener(
             selectedTeacherTask.title ||
             "Untitled Task";
 
-        followOnNewTitle.textContent =
+        const suggested =
             followOnTaskSettings(
                 selectedTeacherTask
-            ).title;
+            );
+
+        followOnTitleInput.value =
+            suggested.title;
+
+        followOnInstructionsInput.value =
+            suggested.instructions;
 
         followOnError.hidden =
             true;
@@ -20072,8 +20099,218 @@ createFollowOnButton.addEventListener(
         );
 
         confirmFollowOnButton.focus();
+
+        showFollowOnHandIn(
+            selectedTeacherTask
+        );
     }
 );
+
+// The rows a query returned, or its error thrown.
+function rowsOrThrow(
+    result
+) {
+    if (result.error) {
+        throw result.error;
+    }
+
+    return result.data || [];
+}
+
+/*
+Who has handed in their map for this Task, for each of its Classes that this
+Teacher teaches. "No map (absent?)" is everyone else on the Roster.
+*/
+async function loadHandInSummary(
+    task
+) {
+    const myClasses =
+        new Map(
+            teacherClasses.map(
+                item => [item.id, item]
+            )
+        );
+
+    const links =
+        rowsOrThrow(
+            await sb
+                .from("task_classes")
+                .select("class_id")
+                .eq("task_id", task.id)
+        );
+
+    const classes =
+        links
+            .map(link => myClasses.get(link.class_id))
+            .filter(Boolean)
+            .map(
+                item => ({
+                    id: item.id,
+                    name: item.class_name || "Class"
+                })
+            );
+
+    if (!classes.length) {
+        return [];
+    }
+
+    const [roster, projects, members] =
+        await Promise.all([
+            sb
+                .from("students")
+                .select("id,student_name,class_id,register_no")
+                .in("class_id", classes.map(item => item.id))
+                .eq("active", true),
+            sb
+                .from("submissions")
+                .select("id,status,class_id,primary_student_id,submission_number")
+                .eq("task_id", task.id),
+            sb
+                .from("submission_members")
+                .select("submission_id,student_id")
+                .eq("task_id", task.id)
+        ]);
+
+    return handInSummary({
+        classes,
+        roster: rowsOrThrow(roster),
+        projects: rowsOrThrow(projects),
+        members: rowsOrThrow(members)
+    });
+}
+
+function handInLine(
+    label,
+    count,
+    names,
+    tone
+) {
+    const row =
+        document.createElement("div");
+
+    row.className =
+        `follow-on-hand-in-row is-${tone}`;
+
+    const head =
+        document.createElement("strong");
+
+    head.textContent =
+        `${label}: ${count}`;
+
+    row.appendChild(head);
+
+    if (names) {
+        const list =
+            document.createElement("span");
+
+        list.textContent =
+            ` — ${names}`;
+
+        row.appendChild(list);
+    }
+
+    return row;
+}
+
+function plural(
+    count,
+    word
+) {
+    return `${count} ${word}${count === 1 ? "" : "s"}`;
+}
+
+async function showFollowOnHandIn(
+    task
+) {
+    followOnHandIn.textContent =
+        "Checking…";
+
+    try {
+        const summary =
+            await loadHandInSummary(
+                task
+            );
+
+        // The window may have closed, or moved on to another Task, meanwhile.
+        if (
+            followOnModal.hidden ||
+            selectedTeacherTask?.id !== task.id
+        ) {
+            return;
+        }
+
+        followOnHandIn.textContent =
+            "";
+
+        if (!summary.length) {
+            followOnHandIn.textContent =
+                "This Task isn’t set for any of your Classes.";
+
+            return;
+        }
+
+        summary.forEach(
+            item => {
+                const block =
+                    document.createElement("div");
+
+                block.className =
+                    "follow-on-hand-in-class";
+
+                const name =
+                    document.createElement("div");
+
+                name.className =
+                    "follow-on-hand-in-class-name";
+
+                name.textContent =
+                    item.className;
+
+                block.appendChild(name);
+
+                block.appendChild(
+                    handInLine(
+                        "Handed in",
+                        `${plural(item.handedInMaps, "map")} (${plural(item.handedInStudents, "student")})`,
+                        "",
+                        "done"
+                    )
+                );
+
+                block.appendChild(
+                    handInLine(
+                        "Not handed in",
+                        `${plural(item.notHandedIn.length, "map")} (${plural(item.notHandedInStudents, "student")})`,
+                        item.notHandedIn
+                            .map(names => names.join(" & "))
+                            .join(", "),
+                        "waiting"
+                    )
+                );
+
+                block.appendChild(
+                    handInLine(
+                        "No map (absent?)",
+                        plural(item.noMap.length, "student"),
+                        item.noMap.join(", "),
+                        "none"
+                    )
+                );
+
+                followOnHandIn.appendChild(block);
+            }
+        );
+    }
+
+    catch (error) {
+        console.error(
+            error
+        );
+
+        followOnHandIn.textContent =
+            "Couldn’t check who has handed in. You can still create the Task.";
+    }
+}
 
 cancelFollowOnButton.addEventListener(
     "click",
@@ -20149,7 +20386,13 @@ confirmFollowOnButton.addEventListener(
                         )
                         .insert({
                             ...followOnTaskSettings(
-                                earlier
+                                earlier,
+                                {
+                                    title:
+                                        followOnTitleInput.value,
+                                    instructions:
+                                        followOnInstructionsInput.value
+                                }
                             ),
                             teacher_id:
                                 currentTeacherUser.id,
@@ -26218,6 +26461,43 @@ async function followOnRows(
         : [data];
 }
 
+/*
+A Follow-on map that is still empty and was never copied (for example, started
+before the earlier map could be found) is filled from the earlier map as it
+opens. The database leaves any map with something drawn on it alone.
+*/
+async function fillEmptyFollowOnProject(
+    submissionId
+) {
+    try {
+        const {
+            error
+        } =
+            await sb.rpc(
+                "follow_on_fill_empty_project",
+                {
+                    p_submission_id:
+                        submissionId
+                }
+            );
+
+        if (error) {
+            throw error;
+        }
+    }
+
+    catch (error) {
+        // Before the database step is run there is nothing to fill. Either way
+        // the map still opens as it is.
+        if (!isMissingDatabaseFunction(error)) {
+            console.warn(
+                "Could not check the earlier map:",
+                error
+            );
+        }
+    }
+}
+
 // Asks before an earlier draft is handed in. Resolves true to go ahead.
 function confirmHandInEarlier(
     earlierTitle
@@ -26676,9 +26956,78 @@ function setFollowOnLinks(
         !buttons.length;
 }
 
+/*
+"This is your map from School map. Today: find Hazards." Shown on a copied map
+the first time it is opened on this device, until it is closed.
+*/
+function mapCarriedNoteKey(
+    submissionId
+) {
+    return `kampungpals:map-carried-note:${submissionId}`;
+}
+
+function hideMapCarriedNote() {
+    $("mapCarriedNote").hidden =
+        true;
+}
+
+function showMapCarriedNote(
+    submissionId,
+    earlierTitle
+) {
+    let seen =
+        false;
+
+    try {
+        seen =
+            localStorage.getItem(
+                mapCarriedNoteKey(submissionId)
+            ) === "1";
+
+        localStorage.setItem(
+            mapCarriedNoteKey(submissionId),
+            "1"
+        );
+    }
+
+    catch (error) {
+        // Private browsing: show it each time instead.
+    }
+
+    if (seen) {
+        return;
+    }
+
+    const text =
+        $("mapCarriedNoteText");
+
+    const title =
+        document.createElement("strong");
+
+    title.textContent =
+        earlierTitle ||
+        "the earlier Task";
+
+    text.replaceChildren(
+        "This is your map from ",
+        title,
+        ". Today: find Hazards."
+    );
+
+    $("mapCarriedNote").hidden =
+        false;
+}
+
+$("closeMapCarriedNote").addEventListener(
+    "click",
+    hideMapCarriedNote
+);
+
 // Links shown on a student's map: earlier feedback, Continue, Add a groupmate.
 async function refreshFollowOnLinks() {
     setFollowOnLinks([]);
+
+    hideMapCarriedNote();
 
     const submissionId =
         currentSubmission?.id;
@@ -26718,6 +27067,16 @@ async function refreshFollowOnLinks() {
     }
 
     const buttons = [];
+
+    if (
+        links.earlier_task_title &&
+        !projectHandedIn
+    ) {
+        showMapCarriedNote(
+            submissionId,
+            links.earlier_task_title
+        );
+    }
 
     if (links.earlier_submission_id) {
         buttons.push(
@@ -26772,6 +27131,8 @@ async function refreshFollowOnLinks() {
 function showTeacherFollowOnLinks(
     submission
 ) {
+    hideMapCarriedNote();
+
     setFollowOnLinks(
         submission?.copied_from_submission_id
             ? [

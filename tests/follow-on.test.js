@@ -1,17 +1,38 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const {
-    nextFollowOnTitle,
+    followOnTitle,
+    FOLLOW_ON_INSTRUCTIONS,
     followOnTaskSettings,
+    canCreateFollowOn,
+    handInSummary,
     orderTasksForList,
     isReferenceShared,
     followOnStartStep
 } = require("../js/follow-on.js");
 
-test("a Follow-on Task is suggested as the next part", () => {
-    assert.equal(nextFollowOnTitle("School map"), "School map — part 2");
-    assert.equal(nextFollowOnTitle("School map — part 2"), "School map — part 3");
-    assert.equal(nextFollowOnTitle("  "), "Untitled Task — part 2");
+test("a Follow-on Task is suggested as the Hazards lesson", () => {
+    assert.equal(followOnTitle("School map"), "School map — Hazards");
+    assert.equal(followOnTitle("  "), "Untitled Task — Hazards");
+});
+
+test("only a Task that is not itself a Follow-on Task can have one", () => {
+    assert.equal(canCreateFollowOn({ id: "t1", follows_on_task_id: null }), true);
+    assert.equal(canCreateFollowOn({ id: "t2", follows_on_task_id: "t1" }), false);
+    assert.equal(canCreateFollowOn(null), false);
+});
+
+test("the Teacher's own title and instructions are used", () => {
+    const settings = followOnTaskSettings(
+        { id: "t1", title: "School map" },
+        { title: "  Danger spots  ", instructions: "  Mark two Hazards.  " }
+    );
+    assert.equal(settings.title, "Danger spots");
+    assert.equal(settings.instructions, "Mark two Hazards.");
+
+    const blank = followOnTaskSettings({ id: "t1", title: "School map" }, { title: "   ", instructions: "" });
+    assert.equal(blank.title, "School map — Hazards", "an empty title falls back to the suggestion");
+    assert.equal(blank.instructions, "", "instructions may be left empty");
 });
 
 test("a Follow-on Task copies the earlier Task's settings and switches Hazards on", () => {
@@ -26,8 +47,8 @@ test("a Follow-on Task copies the earlier Task's settings and switches Hazards o
     const settings = followOnTaskSettings(earlier);
 
     assert.equal(settings.follows_on_task_id, "t1");
-    assert.equal(settings.title, "School map — part 2");
-    assert.equal(settings.instructions, "");
+    assert.equal(settings.title, "School map — Hazards");
+    assert.equal(settings.instructions, FOLLOW_ON_INSTRUCTIONS);
     assert.equal(settings.reference_path, "teacher/t1/map.png");
     assert.equal(settings.allow_guests, false);
     assert.equal(settings.allowed_tools.hazard, true);
@@ -79,4 +100,60 @@ test("what a student sees when starting a Follow-on Task", () => {
     assert.equal(followOnStartStep({ earlier_submission_id: null }), "blank");
     assert.equal(followOnStartStep({ earlier_submission_id: "p1", earlier_status: "draft" }), "hand-in");
     assert.equal(followOnStartStep({ earlier_submission_id: "p1", earlier_status: "submitted" }), "copy");
+});
+
+test("the hand-in summary counts maps and students for each Class", () => {
+    const classes = [{ id: "c1", name: "TG1" }, { id: "c2", name: "TG2" }];
+    const roster = [
+        { id: "amir", student_name: "Amir", class_id: "c1", register_no: 1 },
+        { id: "bea", student_name: "Bea", class_id: "c1", register_no: 2 },
+        { id: "chen", student_name: "Chen", class_id: "c1", register_no: 3 },
+        { id: "dan", student_name: "Dan", class_id: "c1", register_no: 4 },
+        { id: "eli", student_name: "Eli", class_id: "c1", register_no: 5 },
+        { id: "fay", student_name: "Fay", class_id: "c2", register_no: 1 }
+    ];
+    const projects = [
+        { id: "p1", status: "submitted", class_id: "c1", primary_student_id: "amir", submission_number: 1 },
+        { id: "p2", status: "draft", class_id: "c1", primary_student_id: "chen", submission_number: 1 },
+        // Linked only through its main student, with no Group member rows.
+        { id: "p3", status: "submitted", class_id: "c1", primary_student_id: "dan", submission_number: 1 },
+        // A Guest is never counted.
+        { id: "g1", status: "submitted", class_id: null, class_name: "Guest", primary_student_id: null, submission_number: 1 }
+    ];
+    const members = [
+        { submission_id: "p1", student_id: "amir" },
+        { submission_id: "p1", student_id: "bea" },
+        { submission_id: "p2", student_id: "chen" }
+    ];
+
+    const [tg1, tg2] = handInSummary({ classes, roster, projects, members });
+
+    assert.equal(tg1.className, "TG1");
+    assert.equal(tg1.handedInMaps, 2);
+    assert.equal(tg1.handedInStudents, 3);
+    assert.deepEqual(tg1.notHandedIn, [["Chen"]]);
+    assert.equal(tg1.notHandedInStudents, 1);
+    assert.deepEqual(tg1.noMap, ["Eli"]);
+
+    assert.equal(tg2.className, "TG2");
+    assert.equal(tg2.handedInMaps, 0);
+    assert.deepEqual(tg2.noMap, ["Fay"]);
+});
+
+test("a student's newest map is the one that counts", () => {
+    const summary = handInSummary({
+        classes: [{ id: "c1", name: "TG1" }],
+        roster: [{ id: "amir", student_name: "Amir", class_id: "c1" }],
+        projects: [
+            { id: "p1", status: "submitted", class_id: "c1", primary_student_id: "amir", submission_number: 1 },
+            { id: "p2", status: "draft", class_id: "c1", primary_student_id: "amir", submission_number: 2 }
+        ],
+        members: [
+            { submission_id: "p1", student_id: "amir" },
+            { submission_id: "p2", student_id: "amir" }
+        ]
+    });
+
+    assert.equal(summary[0].handedInMaps, 0);
+    assert.deepEqual(summary[0].notHandedIn, [["Amir"]]);
 });

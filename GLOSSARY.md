@@ -19,7 +19,7 @@ An activity a teacher sets for one or more Classes, with instructions, the tools
 _Avoid_: Activity, assignment, lesson
 
 **Follow-on Task**:
-A Task that builds on one earlier Task. Each Project for it starts as a copy of the map the same students made for the earlier Task, which stays exactly as it was, along with its Review. The two Projects are separate from then on: each is Submitted and Marked on its own.
+A Task that builds on one earlier Task, which cannot itself be a Follow-on Task. Each Project for it starts as a copy of the map the same students made for the earlier Task, which stays exactly as it was, along with its Review. The two Projects are separate from then on: each is Submitted and Marked on its own.
 _Avoid_: Task 2, part 2, continuation, resubmission
 
 **Task Code**:
@@ -67,6 +67,10 @@ _Avoid_: Final, completed
 **Group**:
 The set of students from one Class sharing one Project for one Task, chosen by whichever member opens the Task first. A student working alone is a Group of one. Groups do not carry over between Tasks, except into a Follow-on Task, which keeps the earlier Task's Groups. No one leaves a Group there, but a student who had no Project in the earlier Task can be added to one.
 _Avoid_: Team, pair
+
+**No map**:
+A student on the Roster of one of a Task's Classes who has no Project for that Task, usually because they were absent that day. Shown to Teachers as "No map (absent?)", because the app cannot know who was in class. Guests are never counted, as they are not on a Roster.
+_Avoid_: Absent (on its own), missing
 
 **Editor**:
 The one device currently allowed to change a Project. Every other device that opens the same Project at that moment is View-only until the Editor hands over in answer to an Edit Request, or leaves. A student is signed in on one device at a time: signing in on another device signs the first one out.

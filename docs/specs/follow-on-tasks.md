@@ -210,3 +210,12 @@ The Hazard tool is an ordinary per-Task tool. A Teacher who wants mapping and ha
   - showing Teachers which Groups gained a member (story 64)
   - a test that two Group members starting at the same moment get one copy. The copy locks the earlier Project to prevent this, but the rehearsal ran on a single connection.
 
+## Fixes after the first lesson (20 Nov 2026)
+
+In the first real use, a student opened the Follow-on Task two minutes after it was published and got a blank map instead of their handed-in one: their device was most likely still running the page from before Follow-on Tasks, which starts every Task blank. Opening the Task again then kept reopening that blank map.
+
+- **Filling an empty Follow-on map** (`docs/sql/follow-on-fixes/`). When a student opens a Follow-on map that is still empty and was never copied, it is filled from their handed-in earlier map, and the rest of the earlier Group joins it. A map with anything drawn on it is never replaced. An earlier map still in draft is not handed in this way.
+- **Who has handed in.** The "Create a follow-on Task?" window shows, for each of the Teacher's Classes: Handed in (maps and students), Not handed in (names), and No map (absent?) (names). It does not stop the Teacher creating the Task.
+- **The lesson's purpose.** The window has Title and "What students do in this lesson" boxes, filled in as "<earlier Task> — Hazards" and an instruction to mark Hazards. Both are editable and become the new Task's title and instructions.
+- **Lesson 1 only.** A Follow-on Task cannot itself have a Follow-on Task, so the button is shown only on a Task that is not one.
+- **Students.** The first time a copied map is opened on a device, a note says "This is your map from <earlier Task>. Today: find Hazards." It can be closed.

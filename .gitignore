@@ -5,3 +5,6 @@ client_secret_*.json
 tests/browser/node_modules/
 tests/browser/test-results/
 tests/browser/playwright-report/
+
+# Database tests
+tests/sql/node_modules/

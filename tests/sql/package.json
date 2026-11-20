@@ -1,0 +1,11 @@
+{
+  "name": "kampungpals-sql-tests",
+  "private": true,
+  "description": "Database tests: the repo's SQL scripts run in PGlite (Postgres in Node), with a minimal stand-in for the Supabase schema.",
+  "scripts": {
+    "test": "node --test \"*.spec.mjs\""
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.15"
+  }
+}

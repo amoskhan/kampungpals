@@ -11,7 +11,7 @@ href="assets/logo.svg"
 >
 <link
 rel="stylesheet"
-href="css/style.css?v=20261120g"
+href="css/style.css?v=20261120h"
 >
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -1102,6 +1102,15 @@ Every Project for this Task, updating as students draw.
 <div class="teacher-head-actions">
 
 <button
+id="downloadAllMapsButton"
+class="mode-button"
+type="button"
+title="Save every handed-in map for this Task in one ZIP folder"
+>
+⬇ Download all
+</button>
+
+<button
 id="galleryBackButton"
 class="mode-button"
 type="button"
@@ -2189,6 +2198,8 @@ Download this map
 Your feedback and red ink are not included.
 </p>
 
+<p id="mapFormatProgress" class="map-format-progress" role="status" hidden></p>
+
 <div
 id="mapFormatError"
 class="modal-error"
@@ -3040,13 +3051,13 @@ Save
 </div>
 
 <!-- Change ?v= on these files whenever they change, so browsers stop using old copies. -->
-<script src="js/project-access.js?v=20261120g"></script>
-<script src="js/reference-fit.js?v=20261120g"></script>
-<script src="js/follow-on.js?v=20261120g"></script>
-<script src="js/map-downloads.js?v=20261120g"></script>
-<script src="js/app.js?v=20261120g"></script>
-<script src="js/map-tools.js?v=20261120g"></script>
-<script src="js/revised-map.js?v=20261120g"></script>
-<script src="js/tutorial.js?v=20261120g"></script>
+<script src="js/project-access.js?v=20261120h"></script>
+<script src="js/reference-fit.js?v=20261120h"></script>
+<script src="js/follow-on.js?v=20261120h"></script>
+<script src="js/map-downloads.js?v=20261120h"></script>
+<script src="js/app.js?v=20261120h"></script>
+<script src="js/map-tools.js?v=20261120h"></script>
+<script src="js/revised-map.js?v=20261120h"></script>
+<script src="js/tutorial.js?v=20261120h"></script>
 </body>
 </html>

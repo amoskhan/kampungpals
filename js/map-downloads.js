@@ -117,6 +117,109 @@ function a4LandscapePlacement(
     };
 }
 
+/*
+The maps Download all saves: for each student or Group, their newest
+handed-in map (a handed-in Revised Map before the map it revises), with the
+heading and a file name that is unique within the folder.
+
+A student or Group is recognised by the students listed on the map, or, for
+a map with nobody listed (such as a Guest's), by its Class and name, the same
+way the Gallery tells them apart.
+  projects: { id, status, submission_number, updated_at, submitted_at,
+              class_name, group_name, student_name }
+  members:  { submission_id, student_id }
+*/
+function mapsToDownload({
+    projects,
+    members,
+    taskTitle
+}) {
+    const studentsOn =
+        new Map();
+
+    (members || []).forEach(
+        member => {
+            if (!studentsOn.has(member.submission_id)) {
+                studentsOn.set(member.submission_id, []);
+            }
+
+            studentsOn.get(member.submission_id).push(String(member.student_id));
+        }
+    );
+
+    const ownerOf =
+        project => {
+            const ids =
+                (studentsOn.get(project.id) || []).slice().sort();
+
+            if (ids.length) {
+                return `members:${ids.join(",")}`;
+            }
+
+            return [
+                "fallback",
+                String(project.class_name || "").trim().toLowerCase(),
+                String(project.group_name || project.student_name || "").trim().toLowerCase(),
+                project.id
+            ].join(":");
+        };
+
+    const newer =
+        (a, b) =>
+            Number(a.submission_number || 1) - Number(b.submission_number || 1) ||
+            new Date(a.updated_at || a.submitted_at || 0) - new Date(b.updated_at || b.submitted_at || 0);
+
+    const chosen =
+        new Map();
+
+    (projects || [])
+        .filter(canDownloadMap)
+        .forEach(
+            project => {
+                const owner =
+                    ownerOf(project);
+
+                const current =
+                    chosen.get(owner);
+
+                if (!current || newer(project, current) > 0) {
+                    chosen.set(owner, project);
+                }
+            }
+        );
+
+    const used =
+        new Map();
+
+    return [...chosen.values()]
+        .map(
+            submission => ({
+                submission,
+                ...printableMapLabel(submission, taskTitle)
+            })
+        )
+        .sort(
+            (a, b) =>
+                String(a.submission.class_name || "").localeCompare(String(b.submission.class_name || "")) ||
+                a.fileBase.localeCompare(b.fileBase)
+        )
+        .map(
+            file => {
+                const key =
+                    file.fileBase.toLowerCase();
+
+                const count =
+                    (used.get(key) || 0) + 1;
+
+                used.set(key, count);
+
+                return count === 1
+                    ? file
+                    : { ...file, fileBase: `${file.fileBase} (${count})` };
+            }
+        );
+}
+
 if (
     typeof module !== "undefined"
 ) {
@@ -124,6 +227,7 @@ if (
         MAP_FORMATS,
         a4LandscapePlacement,
         canDownloadMap,
+        mapsToDownload,
         printableMapLabel,
         safePrintFileName
     };

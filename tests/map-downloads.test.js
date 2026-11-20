@@ -68,3 +68,101 @@ test("a tall map fills the height instead, and nothing is cut off", () => {
     assert.ok(place.width <= 277);
     assert.ok(place.x >= 10 && place.x + place.width <= 287 + 1e-9);
 });
+
+const { mapsToDownload } = require("../js/map-downloads.js");
+
+const project = (id, extra) => ({
+    id, status: "submitted", submission_number: 1, class_name: "TG1",
+    student_name: "Amir", group_name: null, updated_at: "2026-11-20T09:00:00Z", ...extra
+});
+
+test("Download all has one file per handed-in map, leaving out drafts", () => {
+    const files = mapsToDownload({
+        taskTitle: "School map",
+        projects: [
+            project("p1", { student_name: "Amir", group_name: "Amir, Bea" }),
+            project("p2", { student_name: "Cai", status: "draft" }),
+            project("p3", { student_name: "Dan" })
+        ],
+        members: [
+            { submission_id: "p1", student_id: "amir" }, { submission_id: "p1", student_id: "bea" },
+            { submission_id: "p2", student_id: "cai" },
+            { submission_id: "p3", student_id: "dan" }
+        ]
+    });
+
+    assert.deepEqual(files.map(file => file.submission.id), ["p1", "p3"]);
+    assert.deepEqual(files.map(file => file.fileBase), ["TG1 - Amir, Bea - School map", "TG1 - Dan - School map"]);
+    assert.equal(files[0].heading, "Amir, Bea · TG1 · School map");
+});
+
+test("a Group with a handed-in Revised Map gives the Revised Map", () => {
+    const files = mapsToDownload({
+        taskTitle: "School map",
+        projects: [
+            project("marked", { updated_at: "2026-11-20T09:00:00Z" }),
+            project("revised", { submission_number: 2, updated_at: "2026-11-20T08:00:00Z" })
+        ],
+        members: [
+            { submission_id: "marked", student_id: "amir" },
+            { submission_id: "revised", student_id: "amir" }
+        ]
+    });
+
+    assert.deepEqual(files.map(file => file.submission.id), ["revised"]);
+});
+
+test("a Revised Map still in draft gives the Marked map instead", () => {
+    const files = mapsToDownload({
+        taskTitle: "School map",
+        projects: [
+            project("marked"),
+            project("revised", { submission_number: 2, status: "draft" })
+        ],
+        members: [
+            { submission_id: "marked", student_id: "amir" },
+            { submission_id: "revised", student_id: "amir" }
+        ]
+    });
+
+    assert.deepEqual(files.map(file => file.submission.id), ["marked"]);
+});
+
+test("Guests and maps with no members listed are still included", () => {
+    const files = mapsToDownload({
+        taskTitle: "School map",
+        projects: [
+            project("g1", { class_name: "Guest", student_name: "Zara" }),
+            project("lonely", { student_name: "Eve" })
+        ],
+        members: []
+    });
+
+    assert.deepEqual(files.map(file => file.fileBase), ["Guest - Zara - School map", "TG1 - Eve - School map"]);
+});
+
+test("two files that would have the same name are numbered", () => {
+    const files = mapsToDownload({
+        taskTitle: "School map",
+        projects: [project("a", { student_name: "Amir" }), project("b", { student_name: "Amir" })],
+        members: [{ submission_id: "a", student_id: "amir-1" }, { submission_id: "b", student_id: "amir-2" }]
+    });
+
+    assert.deepEqual(files.map(file => file.fileBase).sort(), ["TG1 - Amir - School map", "TG1 - Amir - School map (2)"]);
+});
+
+test("files are listed by Class, then name", () => {
+    const files = mapsToDownload({
+        taskTitle: "T",
+        projects: [
+            project("x", { class_name: "TG2", student_name: "Ann" }),
+            project("y", { class_name: "TG1", student_name: "Zed" }),
+            project("z", { class_name: "TG1", student_name: "Bob" })
+        ],
+        members: [
+            { submission_id: "x", student_id: "1" }, { submission_id: "y", student_id: "2" }, { submission_id: "z", student_id: "3" }
+        ]
+    });
+
+    assert.deepEqual(files.map(file => file.submission.id), ["z", "y", "x"]);
+});

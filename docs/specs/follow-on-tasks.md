@@ -1,6 +1,6 @@
 # Spec: Follow-on Tasks and Hazards
 
-Status: draft · Supabase (proposed, not applied) + front end · Tracked in [issue #22](https://github.com/akiddurrani-bit/Outdoor_Education_P5/issues/22)
+Status: built, database step not yet run · Supabase (proposed in `docs/sql/follow-on-tasks/`, not applied) + front end · Tracked in [issue #11](https://github.com/amoskhan/kampungpals/issues/11), first in [issue #22](https://github.com/akiddurrani-bit/Outdoor_Education_P5/issues/22)
 Builds on `handed-in-is-final.md`: a Submitted or Marked Project stays final. A Follow-on Task gives students a fresh copy to keep working on instead of reopening it.
 
 ## Problem Statement
@@ -187,5 +187,26 @@ The Hazard tool is an ordinary per-Task tool. A Teacher who wants mapping and ha
 ## Further Notes
 
 - Decided in a grilling session on 22 Oct 2026. GLOSSARY.md was updated: Follow-on Task and Hazard added; Group and Legend updated.
-- Follows the agreed rule: Supabase changes are proposed with exact SQL and an undo, then reviewed, agreed with Kiddy and run by a person, never applied automatically. The exact SQL will be added to this spec once the functions are drafted.
+- Follows the agreed rule: Supabase changes are proposed with exact SQL and an undo, then reviewed, agreed with Kiddy and run by a person, never applied automatically. The exact SQL is in `docs/sql/follow-on-tasks/`: `apply.sql`, the read-only `check.sql`, and `undo.sql`.
 - Answers the question "once the teacher gives the first feedback, can students continue working on the map?" Yes, through a Follow-on Task, without reopening the marked map.
+
+## As built (20 Nov 2026)
+
+- **Database step is additive only.** Two new columns (`tasks.follows_on_task_id`, `submissions.copied_from_submission_id`), a trigger that fixes the link once a Project exists, and new functions:
+  - `follow_on_start_info`
+  - `student_start_follow_on_project` and `guest_start_follow_on_project`
+  - `student_list_follow_on_free`
+  - `student_add_groupmate`
+  - `project_task_links`
+
+  No existing function changes, so today's page behaves exactly as before. `parent_submission_id` keeps meaning "Revised Map of".
+- **What gets copied.** If the earlier Project has a Revised Map, the Revised Map is copied, because it is the Group's latest map.
+- **Earlier feedback.** The earlier map is shown in its own view-only window, with the Teacher's comment and red ink. Students open it from "Feedback on <earlier Task>"; Teachers open it from "Show the earlier map" while marking.
+- **Late joiners.** A student added with "Add a groupmate" is not shown the earlier feedback, because they were not part of that map.
+- **Shared Reference Map.** A Follow-on Task uses the same Reference Map image as the earlier Task. Deleting a Task, or replacing or removing its Reference Map, now keeps the image while another Task still uses it.
+- **Rehearsal.** The database step was rehearsed on PGlite, built from an export of the live schema: 53/53 checks, including the undo. A simulated-browser run with a stand-in Supabase passed 24/24 checks.
+- **Not built yet:**
+  - "Follows on from" on My Projects cards (story 54)
+  - showing Teachers which Groups gained a member (story 64)
+  - a test that two Group members starting at the same moment get one copy. The copy locks the earlier Project to prevent this, but the rehearsal ran on a single connection.
+

@@ -1059,6 +1059,12 @@ let currentStudentProjects = [];
 let pendingTaskLookup =
     null;
 
+// In a Follow-on Task, the classmates who can join a new Group: those with no
+// earlier map. Null for an ordinary Task.
+let pendingFollowOnFree =
+    null;
+
+
 let currentTask =
     null;
 
@@ -14900,9 +14906,18 @@ async function openTaskFromCode() {
             }
 
 
+            if (
+                await startFollowOnProject(
+                    task,
+                    null
+                )
+            ) {
+                return;
+            }
+
+
             const startResult =
                 await sb.rpc(
-
                     "guest_start_project",
 
                     {
@@ -14982,6 +14997,19 @@ async function openTaskFromCode() {
             return;
         }
 
+
+        if (
+            await startFollowOnProject(
+                task,
+                currentStudentProfile.student_id
+            )
+        ) {
+            return;
+        }
+
+
+        pendingFollowOnFree =
+            null;
 
         pendingTaskLookup =
             task;
@@ -15098,7 +15126,14 @@ async function showGroupSelection() {
         "";
 
 
-    currentStudentRoster.forEach(
+    currentStudentRoster
+        .filter(
+            student =>
+                !pendingFollowOnFree ||
+                student.id === currentStudentProfile.student_id ||
+                pendingFollowOnFree.has(student.id)
+        )
+        .forEach(
 
         student => {
 
@@ -15183,6 +15218,9 @@ cancelGroupButton.addEventListener(
         pendingTaskLookup =
             null;
 
+        pendingFollowOnFree =
+            null;
+
 
         document.body.classList.remove(
             "modal-open"
@@ -15241,21 +15279,31 @@ startGroupTaskButton.addEventListener(
                 data,
                 error
             } =
-                await sb.rpc(
-
-                    "student_start_group_project",
-
-                    {
-                        p_task_code:
-                            pendingTaskLookup.task_code,
-
-                        p_student_id:
-                            currentStudentProfile.student_id,
-
-                        p_member_ids:
-                            selectedMembers
-                    }
-                );
+                pendingFollowOnFree
+                    ? await sb.rpc(
+                        "student_start_follow_on_project",
+                        {
+                            p_task_code:
+                                pendingTaskLookup.task_code,
+                            p_student_id:
+                                currentStudentProfile.student_id,
+                            p_member_ids:
+                                selectedMembers,
+                            p_hand_in_earlier:
+                                false
+                        }
+                    )
+                    : await sb.rpc(
+                        "student_start_group_project",
+                        {
+                            p_task_code:
+                                pendingTaskLookup.task_code,
+                            p_student_id:
+                                currentStudentProfile.student_id,
+                            p_member_ids:
+                                selectedMembers
+                        }
+                    );
 
 
             if (error) {
@@ -15278,6 +15326,9 @@ startGroupTaskButton.addEventListener(
 
 
             pendingTaskLookup =
+                null;
+
+            pendingFollowOnFree =
                 null;
 
 
@@ -15691,6 +15742,10 @@ async function loadStudentProject(
 
 
         startTurnWatcher();
+
+
+        refreshFollowOnLinks();
+
     }
 
     catch (error) {
@@ -19711,9 +19766,15 @@ No tasks yet.
     }
 
 
-    teacherTasks.forEach(
+    // Follow-on Tasks sit indented under the Task they follow on from.
+    orderTasksForList(
+        teacherTasks
+    ).forEach(
 
-        task => {
+        ({
+            task,
+            depth
+        }) => {
 
             const button =
                 document.createElement(
@@ -19735,13 +19796,27 @@ No tasks yet.
                         ? " active"
 
                         : ""
+                ) +
+
+                (
+                    depth
+                        ? " is-follow-on"
+                        : ""
                 );
+
+
+            if (depth) {
+                button.style.setProperty(
+                    "--follow-on-depth",
+                    Math.min(depth, 3)
+                );
+            }
 
 
             button.innerHTML =
                 `
 <strong>
-${escapeHtml(
+${depth ? '<span class="follow-on-mark" aria-label="Follows on">↳</span> ' : ""}${escapeHtml(
                     task.title ||
                     "Untitled Task"
                 )}
@@ -19893,6 +19968,252 @@ createTaskButton.addEventListener(
         await selectTeacherTask(
             result
         );
+    }
+);
+
+
+/* =========================================================
+FOLLOW-ON TASKS (Teacher)
+========================================================= */
+
+const createFollowOnButton =
+    $("createFollowOnButton");
+
+const followOnModal =
+    $("followOnModal");
+
+const followOnNewTitle =
+    $("followOnNewTitle");
+
+const followOnEarlierTitle =
+    $("followOnEarlierTitle");
+
+const followOnError =
+    $("followOnError");
+
+const cancelFollowOnButton =
+    $("cancelFollowOnButton");
+
+const confirmFollowOnButton =
+    $("confirmFollowOnButton");
+
+// "Follows on from: School map" under the heading of a Follow-on Task.
+function showTeacherTaskFollowsOn(
+    task
+) {
+    const teacherTaskFollowsOn =
+        $("teacherTaskFollowsOn");
+
+    const earlier =
+        task?.follows_on_task_id
+            ? teacherTasks.find(
+                item =>
+                    item.id === task.follows_on_task_id
+            )
+            : null;
+
+    teacherTaskFollowsOn.hidden =
+        !task?.follows_on_task_id;
+
+    teacherTaskFollowsOn.textContent =
+        earlier
+            ? `Follows on from: ${earlier.title || "Untitled Task"}`
+            : "Follows on from an earlier Task.";
+}
+
+function closeFollowOnModal() {
+    followOnModal.hidden =
+        true;
+
+    document.body.classList.remove(
+        "modal-open"
+    );
+}
+
+createFollowOnButton.addEventListener(
+    "click",
+    () => {
+        if (!selectedTeacherTask) {
+            return;
+        }
+
+        followOnEarlierTitle.textContent =
+            selectedTeacherTask.title ||
+            "Untitled Task";
+
+        followOnNewTitle.textContent =
+            followOnTaskSettings(
+                selectedTeacherTask
+            ).title;
+
+        followOnError.hidden =
+            true;
+
+        followOnModal.hidden =
+            false;
+
+        document.body.classList.add(
+            "modal-open"
+        );
+
+        confirmFollowOnButton.focus();
+    }
+);
+
+cancelFollowOnButton.addEventListener(
+    "click",
+    closeFollowOnModal
+);
+
+confirmFollowOnButton.addEventListener(
+    "click",
+    async () => {
+        const earlier =
+            selectedTeacherTask;
+
+        if (!earlier) {
+            return;
+        }
+
+        confirmFollowOnButton.disabled =
+            true;
+
+        confirmFollowOnButton.textContent =
+            "Creating…";
+
+        followOnError.hidden =
+            true;
+
+        try {
+            // The same Classes, where this Teacher teaches them.
+            const classLinks =
+                await sb
+                    .from(
+                        "task_classes"
+                    )
+                    .select(
+                        "class_id"
+                    )
+                    .eq(
+                        "task_id",
+                        earlier.id
+                    );
+
+            if (classLinks.error) {
+                throw classLinks.error;
+            }
+
+            const myClassIds =
+                new Set(
+                    teacherClasses.map(
+                        item => item.id
+                    )
+                );
+
+            const classIds =
+                (classLinks.data || [])
+                    .map(
+                        link => link.class_id
+                    )
+                    .filter(
+                        id => myClassIds.has(id)
+                    );
+
+            let created =
+                null;
+
+            for (
+                let i = 0;
+                i < 4 && !created;
+                i++
+            ) {
+                const attempt =
+                    await sb
+                        .from(
+                            "tasks"
+                        )
+                        .insert({
+                            ...followOnTaskSettings(
+                                earlier
+                            ),
+                            teacher_id:
+                                currentTeacherUser.id,
+                            task_code:
+                                randomTaskCode()
+                        })
+                        .select()
+                        .single();
+
+                if (!attempt.error) {
+                    created =
+                        attempt.data;
+                }
+                else if (
+                    attempt.error.code !== "23505"
+                ) {
+                    throw attempt.error;
+                }
+            }
+
+            if (!created) {
+                throw new Error(
+                    "Could not generate a unique task code. Try again."
+                );
+            }
+
+            if (classIds.length) {
+                const assigned =
+                    await sb
+                        .from(
+                            "task_classes"
+                        )
+                        .insert(
+                            classIds.map(
+                                classId => ({
+                                    task_id:
+                                        created.id,
+                                    class_id:
+                                        classId
+                                })
+                            )
+                        );
+
+                if (assigned.error) {
+                    throw assigned.error;
+                }
+            }
+
+            closeFollowOnModal();
+
+            await loadTeacherTasks();
+
+            await selectTeacherTask(
+                created
+            );
+
+            teacherTaskInstructions.focus();
+        }
+
+        catch (error) {
+            console.error(
+                error
+            );
+
+            followOnError.textContent =
+                error.message ||
+                "Could not create the follow-on Task.";
+
+            followOnError.hidden =
+                false;
+        }
+
+        finally {
+            confirmFollowOnButton.disabled =
+                false;
+
+            confirmFollowOnButton.textContent =
+                "Create follow-on Task";
+        }
     }
 );
 
@@ -20053,6 +20374,11 @@ async function selectTeacherTask(
     teacherTaskCode.textContent =
         task.task_code ||
         "------";
+
+
+    showTeacherTaskFollowsOn(
+        task
+    );
 
 
     teacherTaskTitle.value =
@@ -20625,8 +20951,14 @@ deleteTaskButton.addEventListener(
             }
 
 
+            // A Follow-on Task can share this image; keep it while it is used.
             if (
-                referencePath
+                referencePath &&
+                !isReferenceShared(
+                    referencePath,
+                    teacherTasks,
+                    taskId
+                )
             ) {
 
                 const referenceDelete =
@@ -21598,7 +21930,14 @@ teacherReferenceFile.addEventListener(
             updated.data;
 
 
-        if (old) {
+        if (
+            old &&
+            !isReferenceShared(
+                old,
+                teacherTasks,
+                selectedTeacherTask.id
+            )
+        ) {
 
             await sb
                 .storage
@@ -21682,14 +22021,22 @@ removeReferenceButton.addEventListener(
         }
 
 
-        await sb
-            .storage
-            .from(
-                APP_CONFIG.referenceBucket
+        if (
+            !isReferenceShared(
+                path,
+                teacherTasks,
+                selectedTeacherTask.id
             )
-            .remove([
-                path
-            ]);
+        ) {
+            await sb
+                .storage
+                .from(
+                    APP_CONFIG.referenceBucket
+                )
+                .remove([
+                    path
+                ]);
+        }
 
 
         selectedTeacherTask =
@@ -23916,6 +24263,11 @@ updated_at
         "";
 
 
+    showTeacherFollowOnLinks(
+        data
+    );
+
+
     studentBadge.textContent =
         "Teacher Review";
 
@@ -25391,3 +25743,750 @@ async function deleteStudentSubmissionProgress(
             "Delete";
     }
 }
+
+/* =========================================================
+FOLLOW-ON TASKS (students, and the earlier map view)
+========================================================= */
+
+// PostgREST's "function not found" (PGRST202), or Postgres's own (42883).
+function isMissingDatabaseFunction(
+    error
+) {
+    return error?.code === "PGRST202" ||
+        error?.code === "42883";
+}
+
+async function followOnRows(
+    name,
+    args
+) {
+    const {
+        data,
+        error
+    } =
+        await sb.rpc(
+            name,
+            args
+        );
+
+    if (error) {
+        throw error;
+    }
+
+    if (data == null) {
+        return [];
+    }
+
+    return Array.isArray(data)
+        ? data
+        : [data];
+}
+
+// Asks before an earlier draft is handed in. Resolves true to go ahead.
+function confirmHandInEarlier(
+    earlierTitle
+) {
+    const modal =
+        $("handInEarlierModal");
+
+    $("handInEarlierTask").textContent =
+        earlierTitle ||
+        "the earlier Task";
+
+    modal.hidden =
+        false;
+
+    document.body.classList.add(
+        "modal-open"
+    );
+
+    return new Promise(
+        resolve => {
+            const finish =
+                answer => {
+                    modal.hidden =
+                        true;
+
+                    document.body.classList.remove(
+                        "modal-open"
+                    );
+
+                    $("confirmHandInEarlierButton").onclick =
+                        null;
+
+                    $("cancelHandInEarlierButton").onclick =
+                        null;
+
+                    resolve(answer);
+                };
+
+            $("confirmHandInEarlierButton").onclick =
+                () => finish(true);
+
+            $("cancelHandInEarlierButton").onclick =
+                () => finish(false);
+        }
+    );
+}
+
+/*
+Opening a Follow-on Task the student has no Project for yet. Returns false when
+the Task is not a Follow-on Task, so the usual start can carry on.
+*/
+async function startFollowOnProject(
+    task,
+    studentId
+) {
+    let info;
+
+    try {
+        [info] =
+            await followOnRows(
+                "follow_on_start_info",
+                {
+                    p_task_code:
+                        task.task_code,
+                    p_student_id:
+                        studentId
+                }
+            );
+    }
+
+    catch (error) {
+        // Until the database step is run there are no Follow-on Tasks, so every
+        // Task starts as usual. Any other failure is shown to the student.
+        if (isMissingDatabaseFunction(error)) {
+            console.warn(
+                "Follow-on Tasks are not set up in the database yet:",
+                error
+            );
+
+            return false;
+        }
+
+        throw error;
+    }
+
+    const step =
+        followOnStartStep(info);
+
+    if (!step) {
+        return false;
+    }
+
+    // No earlier map: choose a Group from classmates who had none either.
+    if (
+        step === "blank" &&
+        studentId
+    ) {
+        const free =
+            await followOnRows(
+                "student_list_follow_on_free",
+                {
+                    p_task_code:
+                        task.task_code,
+                    p_student_id:
+                        studentId
+                }
+            );
+
+        pendingFollowOnFree =
+            new Set(
+                free.map(
+                    student => student.student_id
+                )
+            );
+
+        pendingTaskLookup =
+            task;
+
+        await showGroupSelection();
+
+        return true;
+    }
+
+    let handIn =
+        false;
+
+    if (step === "hand-in") {
+        if (
+            !await confirmHandInEarlier(
+                info.earlier_task_title
+            )
+        ) {
+            return true;
+        }
+
+        handIn =
+            true;
+    }
+
+    const [submissionId] =
+        studentId
+            ? await followOnRows(
+                "student_start_follow_on_project",
+                {
+                    p_task_code:
+                        task.task_code,
+                    p_student_id:
+                        studentId,
+                    p_member_ids:
+                        [],
+                    p_hand_in_earlier:
+                        handIn
+                }
+            )
+            : await followOnRows(
+                "guest_start_follow_on_project",
+                {
+                    p_task_code:
+                        task.task_code,
+                    p_hand_in_earlier:
+                        handIn
+                }
+            );
+
+    await loadStudentProject(
+        submissionId
+    );
+
+    return true;
+}
+
+// "Continue in …": open the Follow-on Task straight from the earlier map.
+async function continueInFollowOnTask(
+    code
+) {
+    const guest =
+        currentIdentityType === "guest";
+
+    const [task] =
+        guest
+            ? await followOnRows(
+                "guest_get_task_by_code",
+                {
+                    p_code:
+                        code
+                }
+            )
+            : await followOnRows(
+                "student_get_task_by_code",
+                {
+                    p_code:
+                        code,
+                    p_student_id:
+                        currentStudentProfile.student_id
+                }
+            );
+
+    if (!task) {
+        throw new Error(
+            "That Task could not be opened."
+        );
+    }
+
+    if (task.existing_submission_id) {
+        await loadStudentProject(
+            task.existing_submission_id
+        );
+
+        return;
+    }
+
+    await startFollowOnProject(
+        task,
+        guest
+            ? null
+            : currentStudentProfile.student_id
+    );
+}
+
+/*
+The earlier map, exactly as it was marked, with the Teacher's comment and red
+ink, in its own view-only window. The red ink never sits on the map being changed.
+*/
+function showEarlierMap({
+    title,
+    mapData,
+    feedback,
+    annotations
+}) {
+    const modal =
+        $("earlierMapModal");
+
+    const preview =
+        $("earlierMapPreview");
+
+    $("earlierMapTitle").textContent =
+        title ||
+        "Earlier map";
+
+    renderMapPreview(
+        preview,
+        mapData || {}
+    );
+
+    const svg =
+        preview.querySelector("svg");
+
+    (annotations || []).forEach(
+        stroke => {
+            const polyline =
+                document.createElementNS(
+                    SVG_NS,
+                    "polyline"
+                );
+
+            polyline.setAttribute(
+                "points",
+                pointsToString(
+                    stroke.points ||
+                    []
+                )
+            );
+
+            polyline.setAttribute(
+                "class",
+                "teacher-ink"
+            );
+
+            svg?.appendChild(
+                polyline
+            );
+        }
+    );
+
+    const text =
+        String(feedback || "").trim();
+
+    $("earlierMapFeedback").textContent =
+        text ||
+        (
+            annotations?.length
+                ? "Your teacher marked this map with red ink."
+                : "There is no feedback on this map yet."
+        );
+
+    modal.hidden =
+        false;
+
+    document.body.classList.add(
+        "modal-open"
+    );
+
+    $("closeEarlierMapButton").focus();
+}
+
+$("closeEarlierMapButton").addEventListener(
+    "click",
+    () => {
+        $("earlierMapModal").hidden =
+            true;
+
+        document.body.classList.remove(
+            "modal-open"
+        );
+    }
+);
+
+async function openEarlierMapForStudent(
+    submissionId,
+    title
+) {
+    const [project] =
+        currentIdentityType === "guest"
+            ? await followOnRows(
+                "guest_load_project",
+                {
+                    p_submission_id:
+                        submissionId
+                }
+            )
+            : await followOnRows(
+                "student_load_project",
+                {
+                    p_submission_id:
+                        submissionId,
+                    p_student_id:
+                        currentStudentProfile.student_id
+                }
+            );
+
+    if (!project) {
+        throw new Error(
+            "The earlier map could not be opened."
+        );
+    }
+
+    const review =
+        await fetchStudentReview(
+            submissionId
+        );
+
+    showEarlierMap({
+        title:
+            `${title || project.task_title || "Earlier Task"} · view only`,
+        mapData:
+            project.map_data,
+        feedback:
+            review?.feedback,
+        annotations:
+            review?.annotations
+    });
+}
+
+async function openEarlierMapForTeacher(
+    submissionId
+) {
+    const [projectResult, reviewResult] =
+        await Promise.all([
+            sb
+                .from("submissions")
+                .select("map_data, task_id")
+                .eq("id", submissionId)
+                .maybeSingle(),
+            sb
+                .from("submission_reviews")
+                .select("teacher_feedback, teacher_annotations")
+                .eq("submission_id", submissionId)
+                .maybeSingle()
+        ]);
+
+    if (projectResult.error || !projectResult.data) {
+        throw projectResult.error ||
+            new Error("The earlier map could not be opened.");
+    }
+
+    const earlierTask =
+        teacherTasks.find(
+            task =>
+                task.id === projectResult.data.task_id
+        );
+
+    showEarlierMap({
+        title:
+            `${earlierTask?.title || "Earlier Task"} · view only`,
+        mapData:
+            projectResult.data.map_data,
+        feedback:
+            reviewResult.data?.teacher_feedback,
+        annotations:
+            Array.isArray(reviewResult.data?.teacher_annotations)
+                ? reviewResult.data.teacher_annotations
+                : []
+    });
+}
+
+function followOnLinkButton(
+    label,
+    onClick
+) {
+    const button =
+        document.createElement(
+            "button"
+        );
+
+    button.type =
+        "button";
+
+    button.className =
+        "follow-on-link";
+
+    button.textContent =
+        label;
+
+    button.addEventListener(
+        "click",
+        async () => {
+            button.disabled =
+                true;
+
+            try {
+                await onClick();
+            }
+
+            catch (error) {
+                console.error(
+                    error
+                );
+
+                alert(
+                    error.message ||
+                    "Something went wrong. Try again."
+                );
+            }
+
+            finally {
+                button.disabled =
+                    false;
+            }
+        }
+    );
+
+    return button;
+}
+
+function setFollowOnLinks(
+    buttons
+) {
+    const links =
+        $("followOnLinks");
+
+    links.replaceChildren(
+        ...buttons
+    );
+
+    links.hidden =
+        !buttons.length;
+}
+
+// Links shown on a student's map: earlier feedback, Continue, Add a groupmate.
+async function refreshFollowOnLinks() {
+    setFollowOnLinks([]);
+
+    const submissionId =
+        currentSubmission?.id;
+
+    if (!submissionId) {
+        return;
+    }
+
+    let links;
+
+    try {
+        [links] =
+            await followOnRows(
+                "project_task_links",
+                {
+                    p_submission_ids:
+                        [submissionId]
+                }
+            );
+    }
+
+    catch (error) {
+        // Before the database step is run, there are simply no links.
+        console.warn(
+            "Could not load follow-on links:",
+            error
+        );
+
+        return;
+    }
+
+    if (
+        !links ||
+        currentSubmission?.id !== submissionId
+    ) {
+        return;
+    }
+
+    const buttons = [];
+
+    if (links.earlier_submission_id) {
+        buttons.push(
+            followOnLinkButton(
+                `Feedback on ${links.earlier_task_title || "the earlier Task"}`,
+                () =>
+                    openEarlierMapForStudent(
+                        links.earlier_submission_id,
+                        links.earlier_task_title
+                    )
+            )
+        );
+    }
+
+    if (
+        links.earlier_task_title &&
+        currentIdentityType !== "guest" &&
+        !projectHandedIn
+    ) {
+        buttons.push(
+            followOnLinkButton(
+                "Add a groupmate",
+                openAddGroupmate
+            )
+        );
+    }
+
+    if (
+        links.next_task_code &&
+        projectHandedIn
+    ) {
+        const next =
+            followOnLinkButton(
+                `Continue in ${links.next_task_title || "the next Task"} →`,
+                () =>
+                    continueInFollowOnTask(
+                        links.next_task_code
+                    )
+            );
+
+        next.classList.add(
+            "is-primary"
+        );
+
+        buttons.push(next);
+    }
+
+    setFollowOnLinks(buttons);
+}
+
+// "Show earlier map" while a Teacher marks a Follow-on Project.
+function showTeacherFollowOnLinks(
+    submission
+) {
+    setFollowOnLinks(
+        submission?.copied_from_submission_id
+            ? [
+                followOnLinkButton(
+                    "Show the earlier map",
+                    () =>
+                        openEarlierMapForTeacher(
+                            submission.copied_from_submission_id
+                        )
+                )
+            ]
+            : []
+    );
+}
+
+/* ---------- Add a groupmate ---------- */
+
+async function openAddGroupmate() {
+    const list =
+        $("addGroupmateList");
+
+    const free =
+        await followOnRows(
+            "student_list_follow_on_free",
+            {
+                p_task_code:
+                    currentTask.task_code,
+                p_student_id:
+                    currentStudentProfile.student_id
+            }
+        );
+
+    list.innerHTML =
+        free.length
+            ? ""
+            : '<p class="helper-text">Everyone in your class already has a map for this Task.</p>';
+
+    free.forEach(
+        student => {
+            const label =
+                document.createElement(
+                    "label"
+                );
+
+            label.className =
+                "group-member-option";
+
+            label.innerHTML =
+                `
+<input type="radio" name="addGroupmate" value="${escapeHtml(student.student_id)}">
+<span>${escapeHtml(rosterDisplayName({ ...student, id: student.student_id }))}</span>
+`;
+
+            list.appendChild(
+                label
+            );
+        }
+    );
+
+    $("addGroupmateError").hidden =
+        true;
+
+    $("confirmAddGroupmateButton").disabled =
+        !free.length;
+
+    $("addGroupmateModal").hidden =
+        false;
+
+    document.body.classList.add(
+        "modal-open"
+    );
+}
+
+function closeAddGroupmate() {
+    $("addGroupmateModal").hidden =
+        true;
+
+    document.body.classList.remove(
+        "modal-open"
+    );
+}
+
+$("cancelAddGroupmateButton").addEventListener(
+    "click",
+    closeAddGroupmate
+);
+
+$("confirmAddGroupmateButton").addEventListener(
+    "click",
+    async () => {
+        const chosen =
+            $("addGroupmateList")
+                .querySelector(
+                    'input[name="addGroupmate"]:checked'
+                );
+
+        const error =
+            $("addGroupmateError");
+
+        if (!chosen) {
+            error.textContent =
+                "Choose a classmate to add.";
+
+            error.hidden =
+                false;
+
+            return;
+        }
+
+        const button =
+            $("confirmAddGroupmateButton");
+
+        button.disabled =
+            true;
+
+        try {
+            await followOnRows(
+                "student_add_groupmate",
+                {
+                    p_submission_id:
+                        currentSubmission.id,
+                    p_student_id:
+                        currentStudentProfile.student_id,
+                    p_new_member_id:
+                        chosen.value
+                }
+            );
+
+            closeAddGroupmate();
+
+            await loadStudentProject(
+                currentSubmission.id
+            );
+        }
+
+        catch (failure) {
+            console.error(
+                failure
+            );
+
+            error.textContent =
+                failure.message ||
+                "Could not add this classmate.";
+
+            error.hidden =
+                false;
+        }
+
+        finally {
+            button.disabled =
+                false;
+        }
+    }
+);

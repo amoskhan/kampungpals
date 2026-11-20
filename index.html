@@ -11,7 +11,7 @@ href="assets/logo.svg"
 >
 <link
 rel="stylesheet"
-href="css/style.css?v=20261120a"
+href="css/style.css?v=20261120b"
 >
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -224,6 +224,7 @@ Abstract Mapping
 <div class="task-copy">
 <p id="taskInstructions"></p>
 <p id="taskMembers" class="task-members"></p>
+<div id="followOnLinks" class="follow-on-links" hidden></div>
 </div>
 
 <button
@@ -1255,6 +1256,8 @@ Code:
 
 </div>
 
+<p id="teacherTaskFollowsOn" class="follow-on-note" hidden></p>
+
 <label for="teacherTaskTitle">
 Task title
 </label>
@@ -1555,6 +1558,32 @@ Refresh
 id="submissionList"
 class="submission-list"
 ></div>
+
+</div>
+
+<div class="reference-manager follow-on-manager">
+
+<div>
+<div class="mini-label">
+NEXT LESSON
+</div>
+
+<h3>
+Follow-on Task
+</h3>
+
+<p class="helper-text">
+Students carry on from the map they made in this Task, for example to identify hazards. Their map and your feedback here stay exactly as they are.
+</p>
+</div>
+
+<button
+id="createFollowOnButton"
+class="primary-button"
+type="button"
+>
+Create follow-on Task
+</button>
 
 </div>
 
@@ -2098,6 +2127,198 @@ class="modal-primary-button"
 type="button"
 >
 Create Guest Account
+</button>
+
+</div>
+
+</div>
+</div>
+
+<div
+id="earlierMapModal"
+class="modal-overlay"
+hidden
+>
+
+<div class="object-modal earlier-map-card" role="dialog" aria-modal="true" aria-labelledby="earlierMapTitle">
+
+<div class="modal-step-label">
+EARLIER MAP
+</div>
+
+<h2 id="earlierMapTitle">
+Earlier map
+</h2>
+
+<div id="earlierMapPreview" class="earlier-map-preview"></div>
+
+<div class="earlier-map-feedback">
+<strong>Teacher feedback</strong>
+<p id="earlierMapFeedback"></p>
+</div>
+
+<div class="modal-actions">
+
+<button
+id="closeEarlierMapButton"
+class="modal-primary-button"
+type="button"
+>
+Close
+</button>
+
+</div>
+
+</div>
+</div>
+
+<div
+id="followOnModal"
+class="modal-overlay"
+hidden
+>
+
+<div class="object-modal follow-on-modal-card" role="dialog" aria-modal="true" aria-labelledby="followOnModalTitle">
+
+<div class="modal-step-label">
+NEXT LESSON
+</div>
+
+<h2 id="followOnModalTitle">
+Create a follow-on Task?
+</h2>
+
+<p class="modal-description">
+A new Task, <strong id="followOnNewTitle"></strong>, follows on from <strong id="followOnEarlierTitle"></strong>.
+</p>
+
+<ul class="follow-on-points">
+<li>Each student or Group starts with a <strong>copy</strong> of the map they made in this Task.</li>
+<li>Their map and your feedback in this Task stay <strong>exactly as they are</strong>.</li>
+<li>Groups stay the same. A student who missed this Task can be added to a Group, or start their own map.</li>
+<li>It gets its <strong>own Task Code</strong>, and students can also continue straight from their map in this Task.</li>
+<li>It uses the same Classes, Reference Map and tools, with the <strong>Hazard</strong> tool switched on. You can change these, and add instructions, before sharing the code.</li>
+</ul>
+
+<div
+id="followOnError"
+class="modal-error"
+hidden
+></div>
+
+<div class="modal-actions">
+
+<button
+id="cancelFollowOnButton"
+class="modal-secondary-button"
+type="button"
+>
+Cancel
+</button>
+
+<button
+id="confirmFollowOnButton"
+class="modal-primary-button"
+type="button"
+>
+Create follow-on Task
+</button>
+
+</div>
+
+</div>
+</div>
+
+<div
+id="handInEarlierModal"
+class="modal-overlay"
+hidden
+>
+
+<div class="object-modal" role="dialog" aria-modal="true" aria-labelledby="handInEarlierTitle">
+
+<div class="modal-step-label">
+BEFORE YOU START
+</div>
+
+<h2 id="handInEarlierTitle">
+Hand in your earlier map?
+</h2>
+
+<p class="modal-description">
+Your map for <strong id="handInEarlierTask"></strong> has not been handed in yet. Starting this Task hands it in for your Group, and you carry on from a copy of it here. You cannot change the earlier map after that.
+</p>
+
+<div class="modal-actions">
+
+<button
+id="cancelHandInEarlierButton"
+class="modal-secondary-button"
+type="button"
+>
+Cancel
+</button>
+
+<button
+id="confirmHandInEarlierButton"
+class="modal-primary-button"
+type="button"
+>
+Hand in and start
+</button>
+
+</div>
+
+</div>
+</div>
+
+<div
+id="addGroupmateModal"
+class="modal-overlay"
+hidden
+>
+
+<div class="object-modal" role="dialog" aria-modal="true" aria-labelledby="addGroupmateTitle">
+
+<div class="modal-step-label">
+YOUR GROUP
+</div>
+
+<h2 id="addGroupmateTitle">
+Add a groupmate
+</h2>
+
+<p class="modal-description">
+Only classmates who had no map in the earlier Task can join. Nobody can be removed once added.
+</p>
+
+<div
+id="addGroupmateList"
+class="group-members-list"
+></div>
+
+<div
+id="addGroupmateError"
+class="modal-error"
+hidden
+></div>
+
+<div class="modal-actions">
+
+<button
+id="cancelAddGroupmateButton"
+class="modal-secondary-button"
+type="button"
+>
+Cancel
+</button>
+
+<button
+id="confirmAddGroupmateButton"
+class="modal-primary-button"
+type="button"
+>
+Add to Group
 </button>
 
 </div>
@@ -2722,11 +2943,12 @@ Save
 </div>
 
 <!-- Change ?v= on these files whenever they change, so browsers stop using old copies. -->
-<script src="js/project-access.js?v=20261120a"></script>
-<script src="js/reference-fit.js?v=20261120a"></script>
-<script src="js/app.js?v=20261120a"></script>
-<script src="js/map-tools.js?v=20261120a"></script>
-<script src="js/revised-map.js?v=20261120a"></script>
-<script src="js/tutorial.js?v=20261120a"></script>
+<script src="js/project-access.js?v=20261120b"></script>
+<script src="js/reference-fit.js?v=20261120b"></script>
+<script src="js/follow-on.js?v=20261120b"></script>
+<script src="js/app.js?v=20261120b"></script>
+<script src="js/map-tools.js?v=20261120b"></script>
+<script src="js/revised-map.js?v=20261120b"></script>
+<script src="js/tutorial.js?v=20261120b"></script>
 </body>
 </html>

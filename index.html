@@ -836,6 +836,51 @@ id="teacherFeedbackText"
 rows="4"
 placeholder="Write feedback for the student..."
 ></textarea>
+<fieldset
+id="reviewVerdictField"
+class="review-verdict"
+>
+<legend>
+Your decision
+</legend>
+<label>
+<input
+type="radio"
+name="reviewVerdict"
+value="approved"
+>
+<span>
+<strong>
+Approved
+</strong>
+<small>
+Fine as it is. No second draft.
+</small>
+</span>
+</label>
+<label>
+<input
+type="radio"
+name="reviewVerdict"
+value="returned"
+>
+<span>
+<strong>
+Returned
+</strong>
+<small>
+Needs a second draft: the student makes a Revised Map.
+</small>
+</span>
+</label>
+<p
+id="reviewVerdictNote"
+class="review-hint"
+hidden
+>
+A Revised Map has been started, so this stays Returned.
+</p>
+</fieldset>
 </div>
 
 <div class="review-actions">
@@ -891,6 +936,12 @@ Marked work
 <p
 id="studentReviewDate"
 class="student-review-date"
+></p>
+
+<p
+id="studentReviewVerdict"
+class="student-review-verdict"
+hidden
 ></p>
 
 <p

@@ -76,7 +76,11 @@ create table public.submission_members (
 );
 
 create table public.submission_reviews (
-  submission_id uuid primary key references public.submissions (id) on delete cascade
+  submission_id uuid primary key references public.submissions (id) on delete cascade,
+  teacher_id uuid,
+  teacher_feedback text,
+  teacher_annotations jsonb,
+  updated_at timestamptz not null default now()
 );
 
 create table public.submission_edit_locks (

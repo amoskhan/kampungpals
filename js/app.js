@@ -913,6 +913,67 @@ const reviewDraftNotice =
 const reviewHint =
     $("reviewHint");
 
+// Approved or Returned (GLOSSARY.md), chosen when saving a Review.
+const reviewVerdictInputs =
+    Array.from(
+        document.querySelectorAll(
+            'input[name="reviewVerdict"]'
+        )
+    );
+
+const reviewVerdictNote =
+    $("reviewVerdictNote");
+
+// Whether the map being reviewed already has a Revised Map started.
+let reviewRevisedMapStarted =
+    false;
+
+function chosenReviewVerdict() {
+    return reviewVerdictInputs.find(
+        input =>
+            input.checked
+    )?.value || null;
+}
+
+function showReviewVerdict(
+    verdict
+) {
+    reviewVerdictInputs.forEach(
+        input => {
+            input.checked =
+                input.value === verdict;
+        }
+    );
+    applyReviewVerdictLock();
+}
+
+// Once a Revised Map is started, its Returned Review stays Returned.
+function applyReviewVerdictLock() {
+    const locked =
+        reviewRevisedMapStarted &&
+        chosenReviewVerdict() === "returned";
+    reviewVerdictNote.hidden =
+        !locked;
+    reviewVerdictInputs.forEach(
+        input => {
+            input.disabled =
+                !reviewIsHandedIn() ||
+                (
+                    locked &&
+                    input.value === "approved"
+                );
+        }
+    );
+}
+
+reviewVerdictInputs.forEach(
+    input =>
+        input.addEventListener(
+            "change",
+            applyReviewVerdictLock
+        )
+);
+
 
 const handInForThemButton =
     $("handInForThemButton");
@@ -936,6 +997,10 @@ const studentReviewDate =
 
 const studentTeacherFeedbackText =
     $("studentTeacherFeedbackText");
+
+const studentReviewVerdict =
+    $("studentReviewVerdict");
+
 
 const toggleStudentMarkedWorkButton =
     $("toggleStudentMarkedWorkButton");
@@ -12682,8 +12747,8 @@ function resetStudentReviewState() {
 
     studentTeacherFeedbackText.textContent =
         "";
-
-
+    studentReviewVerdict.hidden =
+        true;
     toggleStudentMarkedWorkButton.hidden =
         false;
 
@@ -12692,6 +12757,57 @@ function resetStudentReviewState() {
         "Hide teacher markings";
 }
 
+
+// Says whether the student's map was Approved or Returned.
+async function showStudentReviewVerdict(
+    submissionId
+) {
+    studentReviewVerdict.hidden =
+        true;
+
+    if (!submissionId) {
+        return;
+    }
+
+    const { data, error } =
+        await sb.rpc(
+            "review_verdict",
+            {
+                p_submission_id:
+                    submissionId
+            }
+        );
+
+    // Before the database step is run there is simply no verdict to show.
+    if (
+        error ||
+        currentSubmission?.id !== submissionId ||
+        studentReviewPanel.hidden
+    ) {
+        return;
+    }
+
+    const verdict =
+        Array.isArray(data)
+            ? data[0]
+            : data;
+
+    if (
+        verdict !== "approved" &&
+        verdict !== "returned"
+    ) {
+        return;
+    }
+
+    studentReviewVerdict.textContent =
+        verdict === "approved"
+            ? "Approved: no changes needed."
+            : "Returned: your teacher would like changes. See the feedback below.";
+    studentReviewVerdict.className =
+        `student-review-verdict is-${verdict}`;
+    studentReviewVerdict.hidden =
+        false;
+}
 
 function applyStudentReviewSnapshot(
     value
@@ -12760,9 +12876,10 @@ function applyStudentReviewSnapshot(
 
     studentReviewPanel.hidden =
         false;
-
-
     applyStudentEditLockUI();
+    showStudentReviewVerdict(
+        currentSubmission?.id
+    );
 }
 
 
@@ -13216,6 +13333,7 @@ function applyReviewMarkingState() {
 
     reviewHint.hidden =
         !handedIn;
+    applyReviewVerdictLock();
 
     // Only a handed-in map can be downloaded to print. It goes back at the end
     // of the toolbar if the toolbar was rebuilt.
@@ -24640,37 +24758,46 @@ async function openSubmissionReview(
     );
 
 
-    const reviewResult =
-        await sb
-            .from(
-                "submission_reviews"
-            )
-            .select(
-                `
-teacher_annotations,
-teacher_feedback,
-updated_at
-`
-            )
-            .eq(
-                "submission_id",
-                id
-            )
-            .maybeSingle();
-
+    const [reviewResult, revisedResult] =
+        await Promise.all([
+            sb
+                .from(
+                    "submission_reviews"
+                )
+                .select(
+                    "*"
+                )
+                .eq(
+                    "submission_id",
+                    id
+                )
+                .maybeSingle(),
+            sb
+                .from(
+                    "submissions"
+                )
+                .select(
+                    "id"
+                )
+                .eq(
+                    "parent_submission_id",
+                    id
+                )
+        ]);
 
     if (
         reviewResult.error
     ) {
-
         alert(
             reviewResult.error.message
         );
-
-
         return;
     }
 
+    reviewRevisedMapStarted =
+        Boolean(
+            revisedResult.data?.length
+        );
 
     reviewLastSeenSavedAt =
         reviewResult.data?.updated_at ??
@@ -24693,6 +24820,11 @@ updated_at
     teacherFeedbackText.value =
         reviewResult.data?.teacher_feedback ??
         "";
+
+    showReviewVerdict(
+        reviewResult.data?.verdict ||
+        null
+    );
 
 
     reviewStudentName.textContent =
@@ -24964,20 +25096,24 @@ saveTeacherFeedbackButton.addEventListener(
     async () => {
 
         if (
-
             !reviewSubmission ||
-
             !currentTeacherUser
-
         ) {
-
             return;
         }
 
+        const verdict =
+            chosenReviewVerdict();
+
+        if (!verdict) {
+            statusBar.textContent =
+                "Choose Approved or Returned first.";
+            reviewVerdictInputs[0]?.focus();
+            return;
+        }
 
         saveTeacherFeedbackButton.disabled =
             true;
-
 
         saveTeacherFeedbackButton.textContent =
             "Saving…";
@@ -25046,7 +25182,7 @@ saveTeacherFeedbackButton.addEventListener(
 
                             teacher_feedback:
                                 teacherFeedbackText.value,
-
+                            verdict,
                             updated_at:
                                 savedAt
                         },
@@ -25119,10 +25255,10 @@ saveTeacherFeedbackButton.addEventListener(
 
 
             alert(
-
-                error.message ||
-
-                "Could not save teacher feedback."
+                String(error.message || "").includes("REVISED_MAP_STARTED")
+                    ? "A Revised Map has been started, so this Review stays Returned."
+                    : error.message ||
+                        "Could not save teacher feedback."
             );
 
 

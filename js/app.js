@@ -3114,22 +3114,17 @@ async function getSignedReferenceUrl(
 
 /*
 Worked out from the map area each time, so turning a device mid-lesson uses the
-crop for its new shape.
+fit and crop for its new shape.
 */
 function applyReferenceOverlayFit() {
-    const tools =
-        currentTask?.allowed_tools;
-
     const style =
-        referenceImageStyle(
-            tools?.reference_fit,
-            tools?.reference_crops?.[
-                referenceDeviceForMap(
-                    canvasWrap.clientWidth,
-                    canvasWrap.clientHeight,
-                    window.innerHeight
-                )
-            ]
+        referenceStyleForDevice(
+            currentTask?.allowed_tools,
+            referenceDeviceForMap(
+                canvasWrap.clientWidth,
+                canvasWrap.clientHeight,
+                window.innerHeight
+            )
         );
 
     Object.assign(
@@ -20111,8 +20106,7 @@ async function selectTeacherTask(
 
 
     setReferenceFitChoice(
-        tools.reference_fit,
-        tools.reference_crops
+        tools
     );
 
     clearTeacherReferencePreview();
@@ -20197,8 +20191,12 @@ saveTaskSettingsButton.addEventListener(
             }
         );
 
+    allowed.reference_fits =
+        referenceFitsToSave();
+
+    // The fallback for any device without its own fit.
     allowed.reference_fit =
-        selectedReferenceFit();
+        allowed.reference_fits.computer;
 
     allowed.reference_crops =
         referenceCropsToSave();
@@ -20757,6 +20755,8 @@ deleteTaskButton.addEventListener(
 );
 
 
+let referenceFits = {};
+
 let referenceCrops = {};
 
 let referencePreviewDevice =
@@ -20767,6 +20767,18 @@ const referencePreviewDevices =
 
 const referencePreviewLarge =
     teacherReferencePreview.querySelector(".reference-preview-large");
+
+const referencePreviewShell =
+    teacherReferencePreview.querySelector(".reference-preview-shell");
+
+const referenceEditingDevice =
+    $("referenceEditingDevice");
+
+const referenceFitDescription =
+    $("referenceFitDescription");
+
+const referenceFitAll =
+    $("referenceFitAll");
 
 const referenceCropTools =
     $("referenceCropTools");
@@ -20780,13 +20792,57 @@ const referenceCropReset =
 const referenceUnsaved =
     $("referenceUnsaved");
 
-function selectedReferenceFit() {
-    return (
-        document.querySelector(
-            'input[name="referenceFit"]:checked'
-        )?.value ||
-        DEFAULT_ALLOWED_TOOLS.reference_fit
+const REFERENCE_FIT_NAMES = {
+    stretch: "Stretch",
+    keep: "Keep shape",
+    crop: "Crop"
+};
+
+const REFERENCE_FIT_DESCRIPTIONS = {
+    stretch: "Fills the screen, but can look squashed.",
+    keep: "Shows the whole image, with blank bars.",
+    crop: "Fills the screen, but cuts off the edges. Choose which part shows."
+};
+
+function referenceDeviceElement(
+    key
+) {
+    return referencePreviewDevices.find(
+        device =>
+            device.dataset.device === key
     );
+}
+
+// The settings being edited, in the same shape as a Task's allowed tools.
+function editedReferenceTools() {
+    return {
+        reference_fits: referenceFits,
+        reference_crops: referenceCrops
+    };
+}
+
+// The fit being edited for the selected device.
+function selectedReferenceFit() {
+    return referenceFitForDevice(
+        editedReferenceTools(),
+        referencePreviewDevice
+    );
+}
+
+function referenceFitsToSave() {
+    const saved = {};
+
+    REFERENCE_DEVICES.forEach(
+        ({ key }) => {
+            saved[key] =
+                referenceFitForDevice(
+                    editedReferenceTools(),
+                    key
+                );
+        }
+    );
+
+    return saved;
 }
 
 function referenceCropsToSave() {
@@ -20810,6 +20866,10 @@ function referenceCropsToSave() {
     return saved;
 }
 
+/*
+Settings to store when a new Reference Map is uploaded: crops chosen for the old
+image are cleared, but each device keeps its fit.
+*/
 function toolsWithoutReferenceCrops() {
     return {
         ...(
@@ -20820,50 +20880,85 @@ function toolsWithoutReferenceCrops() {
     };
 }
 
-function referenceSettingsSignature(
-    fit,
-    crops
+function referenceDeviceSignature(
+    tools,
+    key
 ) {
     return JSON.stringify([
-        fit,
-        REFERENCE_DEVICES.map(
-            ({ key }) =>
-                isReferenceCropAdjusted(crops?.[key])
-                    ? normaliseReferenceCrop(crops[key])
-                    : null
+        referenceFitForDevice(
+            tools,
+            key
+        ),
+        isReferenceCropAdjusted(
+            tools?.reference_crops?.[key]
         )
+            ? normaliseReferenceCrop(
+                tools.reference_crops[key]
+            )
+            : null
     ]);
 }
 
-function updateReferenceUnsaved() {
-    const tools = {
-        ...DEFAULT_ALLOWED_TOOLS,
-        ...(
-            selectedTeacherTask?.allowed_tools ||
-            {}
+function isReferenceDeviceUnsaved(
+    key
+) {
+    return (
+        referenceDeviceSignature(
+            editedReferenceTools(),
+            key
+        ) !==
+        referenceDeviceSignature(
+            {
+                ...DEFAULT_ALLOWED_TOOLS,
+                ...(
+                    selectedTeacherTask?.allowed_tools ||
+                    {}
+                )
+            },
+            key
         )
-    };
+    );
+}
+
+function updateReferenceUnsaved() {
+    let anyUnsaved =
+        false;
+
+    referencePreviewDevices.forEach(
+        device => {
+            const unsaved =
+                !teacherReferencePreview.hidden &&
+                isReferenceDeviceUnsaved(
+                    device.dataset.device
+                );
+
+            device.querySelector(".reference-device-unsaved").hidden =
+                !unsaved;
+
+            anyUnsaved =
+                anyUnsaved ||
+                unsaved;
+        }
+    );
 
     referenceUnsaved.hidden =
-        teacherReferencePreview.hidden ||
-        referenceSettingsSignature(
-            selectedReferenceFit(),
-            referenceCrops
-        ) ===
-        referenceSettingsSignature(
-            REFERENCE_FIT_STYLES[tools.reference_fit]
-                ? tools.reference_fit
-                : DEFAULT_ALLOWED_TOOLS.reference_fit,
-            tools.reference_crops
-        );
+        !anyUnsaved;
 }
 
 function applyReferencePreviewFit() {
+    const tools =
+        editedReferenceTools();
+
     const fit =
         selectedReferenceFit();
 
     const cropping =
         fit === "crop";
+
+    const selectedDevice =
+        referenceDeviceElement(
+            referencePreviewDevice
+        );
 
     referencePreviewDevices.forEach(
         device => {
@@ -20887,37 +20982,46 @@ function applyReferencePreviewFit() {
 
             Object.assign(
                 device.querySelector("img").style,
-                referenceImageStyle(
-                    fit,
-                    referenceCrops[key]
+                referenceStyleForDevice(
+                    tools,
+                    key
                 )
             );
 
-            const adjusted =
-                isReferenceCropAdjusted(
-                    referenceCrops[key]
-                );
-
-            const status =
-                device.querySelector(".reference-crop-status");
-
-            status.hidden =
-                !cropping;
-
-            status.textContent =
-                adjusted
-                    ? "Adjusted"
-                    : "Not adjusted";
-
-            status.classList.toggle(
-                "is-adjusted",
-                adjusted
-            );
+            device.querySelector(".reference-device-fit").textContent =
+                REFERENCE_FIT_NAMES[
+                    referenceFitForDevice(
+                        tools,
+                        key
+                    )
+                ];
         }
     );
 
+    document
+        .querySelector(
+            `input[name="referenceFit"][value="${fit}"]`
+        )
+        .checked = true;
+
+    referenceEditingDevice.textContent =
+        selectedDevice
+            ?.querySelector(".reference-device-name")
+            .textContent ||
+        "";
+
+    referenceFitDescription.textContent =
+        REFERENCE_FIT_DESCRIPTIONS[fit];
+
     referencePreviewLarge.dataset.device =
         referencePreviewDevice;
+
+    referencePreviewShell.dataset.device =
+        referencePreviewDevice;
+
+    referencePreviewShell.dataset.kind =
+        selectedDevice?.dataset.kind ||
+        "laptop";
 
     referencePreviewLarge.classList.toggle(
         "is-croppable",
@@ -20926,9 +21030,9 @@ function applyReferencePreviewFit() {
 
     Object.assign(
         referencePreviewLarge.querySelector("img").style,
-        referenceImageStyle(
-            fit,
-            referenceCrops[referencePreviewDevice]
+        referenceStyleForDevice(
+            tools,
+            referencePreviewDevice
         )
     );
 
@@ -20943,23 +21047,97 @@ function applyReferencePreviewFit() {
     updateReferenceUnsaved();
 }
 
-function setReferenceFitChoice(
-    fit,
-    crops
+// A short fade, so a change of fit or device eases in rather than jumps.
+function easeReferencePreviews(
+    keys
 ) {
-    const choice =
-        REFERENCE_FIT_STYLES[fit]
-            ? fit
-            : DEFAULT_ALLOWED_TOOLS.reference_fit;
+    keys.forEach(
+        key => {
+            [
+                referenceDeviceElement(key)
+                    ?.querySelector(".reference-preview-frame"),
+                key === referencePreviewDevice
+                    ? referencePreviewLarge
+                    : null
+            ]
+                .filter(Boolean)
+                .forEach(
+                    element => {
+                        element.classList.remove(
+                            "is-easing"
+                        );
 
-    document
-        .querySelector(
-            `input[name="referenceFit"][value="${choice}"]`
-        )
-        .checked = true;
+                        // Restart the animation even if it is still running.
+                        void element.offsetWidth;
+
+                        element.classList.add(
+                            "is-easing"
+                        );
+                    }
+                );
+        }
+    );
+}
+
+// On a phone the row of devices scrolls sideways; keep the selected one in view.
+function keepReferenceDeviceInView(
+    behavior
+) {
+    const device =
+        referenceDeviceElement(
+            referencePreviewDevice
+        );
+
+    const row =
+        device?.parentElement;
+
+    if (
+        !row ||
+        row.scrollWidth <= row.clientWidth
+    ) {
+        return;
+    }
+
+    const rowBox =
+        row.getBoundingClientRect();
+
+    const box =
+        device.getBoundingClientRect();
+
+    if (
+        box.left >= rowBox.left &&
+        box.right <= rowBox.right
+    ) {
+        return;
+    }
+
+    row.scrollTo({
+        left:
+            row.scrollLeft +
+            box.left -
+            rowBox.left -
+            (rowBox.width - box.width) / 2,
+        behavior
+    });
+}
+
+function setReferenceFitChoice(
+    tools
+) {
+    referenceFits = {};
+
+    REFERENCE_DEVICES.forEach(
+        ({ key }) => {
+            referenceFits[key] =
+                referenceFitForDevice(
+                    tools,
+                    key
+                );
+        }
+    );
 
     referenceCrops = {
-        ...(crops || {})
+        ...(tools?.reference_crops || {})
     };
 
     applyReferencePreviewFit();
@@ -20980,6 +21158,10 @@ function showTeacherReferencePreview(
         false;
 
     applyReferencePreviewFit();
+
+    keepReferenceDeviceInView(
+        "auto"
+    );
 }
 
 function clearTeacherReferencePreview() {
@@ -21006,28 +21188,108 @@ document
         input => {
             input.addEventListener(
                 "change",
-                applyReferencePreviewFit
-            );
-        }
-    );
-
-referencePreviewDevices.forEach(
-    device => {
-        device
-            .querySelector("button")
-            .addEventListener(
-                "click",
                 () => {
-                    referencePreviewDevice =
-                        device.dataset.device;
+                    // The device's crop is kept, so going back to Crop restores it.
+                    referenceFits[referencePreviewDevice] =
+                        input.value;
+
+                    easeReferencePreviews([
+                        referencePreviewDevice
+                    ]);
 
                     applyReferencePreviewFit();
                 }
             );
+        }
+    );
+
+// Copies only the fit: each device keeps a crop suited to its own shape.
+referenceFitAll.addEventListener(
+    "click",
+    () => {
+        const fit =
+            selectedReferenceFit();
+
+        const changed =
+            REFERENCE_DEVICES
+                .map(
+                    ({ key }) => key
+                )
+                .filter(
+                    key =>
+                        referenceFitForDevice(
+                            editedReferenceTools(),
+                            key
+                        ) !== fit
+                );
+
+        changed.forEach(
+            key => {
+                referenceFits[key] =
+                    fit;
+            }
+        );
+
+        easeReferencePreviews(
+            changed
+        );
+
+        applyReferencePreviewFit();
     }
 );
 
-let referenceCropDrag = null;
+referencePreviewDevices.forEach(
+    device => {
+        const button =
+            device.querySelector("button");
+
+        button.addEventListener(
+            "click",
+            () => {
+                referencePreviewDevice =
+                    device.dataset.device;
+
+                easeReferencePreviews([
+                    referencePreviewDevice
+                ]);
+
+                applyReferencePreviewFit();
+
+                keepReferenceDeviceInView(
+                    "smooth"
+                );
+            }
+        );
+    }
+);
+
+function setSelectedReferenceCrop(
+    crop
+) {
+    referenceCrops[referencePreviewDevice] =
+        crop;
+
+    applyReferencePreviewFit();
+}
+
+/*
+Pointers on the large preview: one pointer drags the crop, two pointers pinch to
+zoom.
+*/
+const referenceCropPointers =
+    new Map();
+
+let referencePinchSpan = 0;
+
+function currentReferencePinchSpan() {
+    const [a, b] =
+        [...referenceCropPointers.values()];
+
+    return Math.hypot(
+        a.x - b.x,
+        a.y - b.y
+    );
+}
 
 referencePreviewLarge.addEventListener(
     "pointerdown",
@@ -21048,19 +21310,69 @@ referencePreviewLarge.addEventListener(
             "is-dragging"
         );
 
-        referenceCropDrag = {
-            pointerId: event.pointerId,
-            x: event.clientX,
-            y: event.clientY
-        };
+        referenceCropPointers.set(
+            event.pointerId,
+            {
+                x: event.clientX,
+                y: event.clientY
+            }
+        );
+
+        if (
+            referenceCropPointers.size === 2
+        ) {
+            referencePinchSpan =
+                currentReferencePinchSpan();
+        }
     }
 );
 
 referencePreviewLarge.addEventListener(
     "pointermove",
     event => {
+        const last =
+            referenceCropPointers.get(
+                event.pointerId
+            );
+
+        if (!last) {
+            return;
+        }
+
+        referenceCropPointers.set(
+            event.pointerId,
+            {
+                x: event.clientX,
+                y: event.clientY
+            }
+        );
+
         if (
-            referenceCropDrag?.pointerId !== event.pointerId
+            referenceCropPointers.size === 2
+        ) {
+            const span =
+                currentReferencePinchSpan();
+
+            if (
+                referencePinchSpan > 0 &&
+                span > 0
+            ) {
+                setSelectedReferenceCrop(
+                    zoomReferenceCrop(
+                        referenceCrops[referencePreviewDevice],
+                        span / referencePinchSpan
+                    )
+                );
+            }
+
+            referencePinchSpan =
+                span;
+
+            return;
+        }
+
+        if (
+            referenceCropPointers.size > 2
         ) {
             return;
         }
@@ -21068,14 +21380,14 @@ referencePreviewLarge.addEventListener(
         const image =
             referencePreviewLarge.querySelector("img");
 
-        referenceCrops[referencePreviewDevice] =
+        setSelectedReferenceCrop(
             dragReferenceCrop({
                 crop:
                     referenceCrops[referencePreviewDevice],
                 dx:
-                    event.clientX - referenceCropDrag.x,
+                    event.clientX - last.x,
                 dy:
-                    event.clientY - referenceCropDrag.y,
+                    event.clientY - last.y,
                 frameWidth:
                     referencePreviewLarge.clientWidth,
                 frameHeight:
@@ -21084,15 +21396,8 @@ referencePreviewLarge.addEventListener(
                     image.naturalWidth,
                 imageHeight:
                     image.naturalHeight
-            });
-
-        referenceCropDrag.x =
-            event.clientX;
-
-        referenceCropDrag.y =
-            event.clientY;
-
-        applyReferencePreviewFit();
+            })
+        );
     }
 );
 
@@ -21100,29 +21405,69 @@ referencePreviewLarge.addEventListener(
     type => {
         referencePreviewLarge.addEventListener(
             type,
-            () => {
-                referenceCropDrag = null;
-
-                referencePreviewLarge.classList.remove(
-                    "is-dragging"
+            event => {
+                referenceCropPointers.delete(
+                    event.pointerId
                 );
+
+                referencePinchSpan = 0;
+
+                if (
+                    referenceCropPointers.size === 0
+                ) {
+                    referencePreviewLarge.classList.remove(
+                        "is-dragging"
+                    );
+                }
             }
         );
+    }
+);
+
+/*
+The scroll wheel zooms while the device is on Crop. A trackpad pinch arrives as
+a wheel event with ctrlKey set, in much smaller steps.
+*/
+referencePreviewLarge.addEventListener(
+    "wheel",
+    event => {
+        if (
+            selectedReferenceFit() !== "crop"
+        ) {
+            return;
+        }
+
+        event.preventDefault();
+
+        setSelectedReferenceCrop(
+            zoomReferenceCrop(
+                referenceCrops[referencePreviewDevice],
+                Math.exp(
+                    -event.deltaY *
+                    (
+                        event.ctrlKey
+                            ? 0.01
+                            : 0.002
+                    )
+                )
+            )
+        );
+    },
+    {
+        passive: false
     }
 );
 
 referenceCropZoom.addEventListener(
     "input",
     () => {
-        referenceCrops[referencePreviewDevice] = {
+        setSelectedReferenceCrop({
             ...normaliseReferenceCrop(
                 referenceCrops[referencePreviewDevice]
             ),
             zoom:
                 Number(referenceCropZoom.value)
-        };
-
-        applyReferencePreviewFit();
+        });
     }
 );
 

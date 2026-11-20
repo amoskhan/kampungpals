@@ -8606,26 +8606,251 @@ font-size:27px !important;
 }
 
 /* =========================================================
-REFERENCE PREVIEW
+REFERENCE FIT
+Device first: pick a device in the row, then choose its fit and crop below.
 ========================================================= */
-.reference-fit-choice {
-display:grid;
-grid-template-columns:repeat(3,minmax(0,1fr));
-gap:10px;
-margin:16px 0 0;
+.visually-hidden {
+position:absolute !important;
+width:1px;
+height:1px;
+margin:-1px;
 padding:0;
+overflow:hidden;
+clip:rect(0 0 0 0);
+white-space:nowrap;
 border:0;
 }
 
-.reference-fit-choice legend {
-margin-bottom:8px;
-padding:0;
+.reference-fit-head {
+margin-top:18px;
+}
+
+.reference-fit-title {
+margin:0;
+font-size:16px;
 font-weight:800;
+}
+
+.reference-preview-hint {
+margin:4px 0 0;
+color:var(--muted);
+font-size:13px;
+}
+
+/* ---------- Device row ---------- */
+.reference-preview-grid {
+display:flex;
+align-items:flex-end;
+gap:8px;
+margin-top:12px;
+padding:4px 2px 8px;
+overflow-x:auto;
+scroll-snap-type:x proximity;
+-webkit-overflow-scrolling:touch;
+}
+
+.reference-preview-device {
+flex:0 0 auto;
+margin:0;
+scroll-snap-align:center;
+}
+
+.reference-preview-pick {
+position:relative;
+display:flex;
+flex-direction:column;
+align-items:center;
+gap:6px;
+width:auto;
+min-height:0;
+margin:0;
+padding:10px 12px 9px;
+border:2px solid transparent;
+border-radius:14px;
+background:transparent;
+box-shadow:none;
+color:inherit;
+cursor:pointer;
+}
+
+.reference-preview-pick:hover {
+background:#fff;
+transform:translateY(-2px);
+}
+
+.reference-preview-device.is-selected .reference-preview-pick {
+border-color:var(--forest);
+background:#edf4ee;
+box-shadow:0 4px 14px rgba(52,72,61,.16);
+}
+
+.reference-preview-pick:focus-visible {
+outline:3px solid var(--forest);
+outline-offset:2px;
+}
+
+.reference-device-name {
+color:var(--ink);
+font-size:12px;
+font-weight:700;
+white-space:nowrap;
+}
+
+.reference-device-fit {
+padding:1px 9px;
+border-radius:999px;
+background:#e7e4da;
+color:var(--muted);
+font-size:11px;
+font-weight:700;
+white-space:nowrap;
+}
+
+.reference-preview-device.is-selected .reference-device-fit {
+background:var(--forest);
+color:#fff;
+}
+
+.reference-device-unsaved {
+position:absolute;
+top:6px;
+right:6px;
+width:9px;
+height:9px;
+border-radius:50%;
+background:#d08a2e;
+box-shadow:0 0 0 2px #fff;
+}
+
+.reference-device-unsaved[hidden] {
+display:none;
+}
+
+/* ---------- Device outlines ---------- */
+.reference-device-outline {
+--bezel:4px;
+--radius:12px;
+position:relative;
+display:block;
+padding:var(--bezel);
+border-radius:var(--radius);
+background:#2b302d;
+}
+
+.reference-preview-frame,
+.reference-preview-large {
+display:block;
+overflow:hidden;
+border-radius:calc(var(--radius) - var(--bezel));
+background:#fff;
+}
+
+.reference-preview-frame {
+height:84px;
+}
+
+[data-kind="tablet"] .reference-device-outline,
+.reference-device-outline[data-kind="tablet"] {
+--bezel:6px;
+--radius:10px;
+}
+
+[data-kind="laptop"] .reference-device-outline,
+.reference-device-outline[data-kind="laptop"] {
+--bezel:4px;
+--radius:6px;
+margin-bottom:6px;
+border-bottom-left-radius:0;
+border-bottom-right-radius:0;
+}
+
+/* The laptop's keyboard base. */
+[data-kind="laptop"] .reference-device-outline::after,
+.reference-device-outline[data-kind="laptop"]::after {
+content:"";
+position:absolute;
+left:-8%;
+right:-8%;
+bottom:-6px;
+height:6px;
+border-radius:0 0 8px 8px;
+background:#2b302d;
+}
+
+/* The phone's speaker, along the short edge. */
+[data-kind="phone"] .reference-device-outline::before,
+.reference-device-outline[data-kind="phone"]::before {
+content:"";
+position:absolute;
+top:calc(var(--bezel) / 2 - 1px);
+left:50%;
+width:24%;
+height:2px;
+border-radius:2px;
+background:#59605b;
+transform:translateX(-50%);
+}
+
+[data-device="iphone-sideways"] .reference-device-outline::before,
+.reference-device-outline[data-device="iphone-sideways"]::before {
+top:50%;
+left:calc(var(--bezel) / 2 - 1px);
+width:2px;
+height:24%;
+transform:translateY(-50%);
+}
+
+/* Shapes of the student's map area, measured on each device. */
+[data-device="iphone"] .reference-preview-frame,
+.reference-preview-large[data-device="iphone"] { aspect-ratio:370 / 514; }
+[data-device="iphone-sideways"] .reference-preview-frame,
+.reference-preview-large[data-device="iphone-sideways"] { aspect-ratio:810 / 514; }
+[data-device="ipad-upright"] .reference-preview-frame,
+.reference-preview-large[data-device="ipad-upright"] { aspect-ratio:786 / 514; }
+[data-device="ipad-sideways"] .reference-preview-frame,
+.reference-preview-large[data-device="ipad-sideways"] { aspect-ratio:1146 / 480; }
+[data-device="computer"] .reference-preview-frame,
+.reference-preview-large[data-device="computer"] { aspect-ratio:1332 / 558; }
+
+/* ---------- Editor for the selected device ---------- */
+.reference-editor {
+margin-top:10px;
+padding:14px 16px 16px;
+border:1px solid var(--line);
+border-radius:14px;
+background:#fff;
+}
+
+.reference-editor-title {
+margin:0 0 10px;
+color:var(--muted);
+font-size:13px;
+}
+
+.reference-editor-title strong {
+color:var(--forest-dark);
+font-size:16px;
+}
+
+.reference-editor-controls {
+display:flex;
+flex-wrap:wrap;
+align-items:center;
+gap:10px 14px;
+}
+
+.reference-fit-choice {
+display:inline-flex;
+gap:2px;
+margin:0;
+padding:3px;
+border:0;
+border-radius:11px;
+background:#ecebe4;
 }
 
 .reference-fit-option {
 position:relative;
-display:block;
 margin:0;
 cursor:pointer;
 }
@@ -8639,132 +8864,112 @@ opacity:0;
 }
 
 .reference-fit-card {
-display:flex;
-flex-direction:column;
-gap:3px;
-height:100%;
-padding:11px 13px;
-border:2px solid var(--line);
-border-radius:10px;
-background:#fff;
-box-sizing:border-box;
-transition:border-color .15s ease,background .15s ease,transform .15s ease;
-}
-
-.reference-fit-card strong {
-font-size:14px;
-}
-
-.reference-fit-card small {
+display:block;
+padding:8px 18px;
+border-radius:8px;
 color:var(--muted);
-font-size:12px;
-font-weight:500;
-line-height:1.3;
+font-size:14px;
+font-weight:800;
+white-space:nowrap;
+transition:background .15s ease,color .15s ease,box-shadow .15s ease;
 }
 
 .reference-fit-option:hover .reference-fit-card {
-border-color:var(--forest);
-transform:translateY(-1px);
+color:var(--ink);
 }
 
 .reference-fit-option input:checked + .reference-fit-card {
-border-color:var(--forest);
-background:#edf4ee;
+background:#fff;
 color:var(--forest-dark);
+box-shadow:0 1px 4px rgba(29,39,33,.16);
 }
 
-.reference-fit-option input:focus-visible + .reference-fit-card,
-.reference-preview-pick:focus-visible {
+.reference-fit-option input:focus-visible + .reference-fit-card {
 outline:3px solid var(--forest);
-outline-offset:2px;
+outline-offset:1px;
 }
 
-.reference-preview-hint {
-margin:12px 0 0;
+.reference-fit-all {
+width:auto;
+min-height:36px;
+margin:0;
+padding:6px 12px;
+border:1px dashed var(--forest);
+border-radius:8px;
+background:transparent;
+color:var(--forest-dark);
+font-size:13px;
+font-weight:700;
+cursor:pointer;
+}
+
+.reference-fit-all:hover {
+background:#edf4ee;
+}
+
+.reference-fit-description {
+margin:8px 0 0;
 color:var(--muted);
 font-size:13px;
 }
 
-.reference-preview-grid {
+/* ---------- Large preview, in the device's real shape ---------- */
+.reference-preview-stage {
 display:flex;
-flex-wrap:wrap;
-align-items:flex-end;
-gap:12px;
-margin-top:12px;
+justify-content:center;
+margin-top:14px;
+padding:20px 12px 24px;
+border-radius:12px;
+background:#f3f1ea;
 }
 
-.reference-preview-device {
-margin:0;
+.reference-preview-shell {
+--bezel:clamp(8px,2vw,12px);
+--radius:clamp(18px,4vw,30px);
+box-sizing:border-box;
+width:min(840px,100%);
 }
 
-.reference-preview-device figcaption {
-margin-top:5px;
-color:var(--muted);
-font-size:12px;
-font-weight:700;
-text-align:center;
+.reference-preview-shell[data-device="iphone"] { width:min(300px,100%); }
+.reference-preview-shell[data-device="iphone-sideways"],
+.reference-preview-shell[data-device="ipad-upright"] { width:min(600px,100%); }
+.reference-preview-shell[data-device="ipad-sideways"] { width:min(820px,100%); }
+
+.reference-preview-shell[data-kind="tablet"] {
+--bezel:clamp(9px,2.4vw,16px);
+--radius:24px;
 }
 
-.reference-preview-device.is-selected figcaption {
-color:var(--forest-dark);
+.reference-preview-shell[data-kind="laptop"] {
+--bezel:10px;
+--radius:14px;
+margin-bottom:14px;
 }
 
-.reference-preview-pick {
-display:block;
-width:auto;
-min-height:0;
-margin:0;
-padding:0;
-border:0;
-border-radius:10px;
-background:none;
-box-shadow:none;
-cursor:pointer;
-transition:transform .15s ease;
+.reference-preview-shell[data-kind="laptop"]::after {
+left:-6%;
+right:-6%;
+bottom:-14px;
+height:14px;
+border-radius:0 0 16px 16px;
 }
 
-.reference-preview-pick:hover {
-transform:translateY(-2px);
-background:none;
+.reference-preview-shell[data-kind="phone"]::before {
+width:18%;
+height:4px;
+top:calc(var(--bezel) / 2 - 2px);
 }
 
-.reference-preview-frame {
-display:block;
-height:96px;
-overflow:hidden;
-border:3px solid #9aa39d;
-border-radius:9px;
-background:#fff;
-box-sizing:content-box;
-transition:border-color .15s ease;
+.reference-preview-shell[data-device="iphone-sideways"]::before {
+top:50%;
+width:4px;
+height:18%;
+left:calc(var(--bezel) / 2 - 2px);
 }
-
-.reference-preview-device.is-selected .reference-preview-frame {
-border-color:var(--forest);
-}
-
-/* Shapes of the student's map area, measured on each device. */
-figure[data-device="iphone"] .reference-preview-frame { aspect-ratio:370 / 514; }
-figure[data-device="iphone-sideways"] .reference-preview-frame { aspect-ratio:810 / 514; }
-figure[data-device="ipad-upright"] .reference-preview-frame { aspect-ratio:786 / 514; }
-figure[data-device="ipad-sideways"] .reference-preview-frame { aspect-ratio:1146 / 480; }
-figure[data-device="computer"] .reference-preview-frame { aspect-ratio:1332 / 558; }
 
 .reference-preview-large {
-box-sizing:border-box;
-max-width:100%;
-margin-top:14px;
-overflow:hidden;
-border:4px solid #343936;
-border-radius:12px;
-background:#fff;
+width:100%;
 }
-
-.reference-preview-large[data-device="iphone"] { width:min(320px,100%); aspect-ratio:370 / 514; }
-.reference-preview-large[data-device="iphone-sideways"] { width:min(620px,100%); aspect-ratio:810 / 514; }
-.reference-preview-large[data-device="ipad-upright"] { width:min(620px,100%); aspect-ratio:786 / 514; }
-.reference-preview-large[data-device="ipad-sideways"] { width:min(820px,100%); aspect-ratio:1146 / 480; }
-.reference-preview-large[data-device="computer"] { width:min(820px,100%); aspect-ratio:1332 / 558; }
 
 .reference-preview-large.is-croppable {
 cursor:grab;
@@ -8776,23 +8981,38 @@ user-select:none;
 cursor:grabbing;
 }
 
-.reference-crop-status {
+.reference-preview-frame img,
+.reference-preview-large img {
 display:block;
-margin-top:2px;
-color:var(--muted);
-font-size:11px;
-text-align:center;
+width:100%;
+height:100%;
 }
 
-.reference-crop-status[hidden] {
-display:none;
+/* A change of fit or device eases in rather than jumps. */
+@keyframes reference-ease {
+from {
+opacity:.35;
+transform:scale(.985);
+}
+to {
+opacity:1;
+transform:none;
+}
 }
 
-.reference-crop-status.is-adjusted {
-color:var(--forest-dark);
-font-weight:700;
+.reference-preview-frame.is-easing,
+.reference-preview-large.is-easing {
+animation:reference-ease .28s ease;
 }
 
+@media (prefers-reduced-motion:reduce) {
+.reference-preview-frame.is-easing,
+.reference-preview-large.is-easing {
+animation:none;
+}
+}
+
+/* ---------- Crop tools ---------- */
 .reference-crop-tools {
 display:flex;
 flex-wrap:wrap;
@@ -8813,6 +9033,8 @@ font-size:13px;
 }
 
 .reference-crop-zoom {
+flex:0 1 340px;
+min-width:0;
 display:flex;
 align-items:center;
 gap:10px;
@@ -8822,7 +9044,9 @@ font-weight:700;
 }
 
 .reference-crop-zoom input {
-width:min(260px,55vw);
+flex:1 1 auto;
+min-width:0;
+width:auto;
 padding:0;
 accent-color:var(--forest);
 }
@@ -8847,15 +9071,19 @@ font-size:13px;
 font-weight:700;
 }
 
-.reference-unsaved[hidden] {
-display:none;
+.reference-unsaved::before {
+content:"";
+display:inline-block;
+width:9px;
+height:9px;
+margin-right:6px;
+border-radius:50%;
+background:#d08a2e;
+vertical-align:0;
 }
 
-.reference-preview-frame img,
-.reference-preview-large img {
-display:block;
-width:100%;
-height:100%;
+.reference-unsaved[hidden] {
+display:none;
 }
 
 #saveTaskSettingsButton {
@@ -8863,7 +9091,25 @@ margin-top:16px;
 }
 
 @media (max-width:640px) {
+.reference-editor {
+padding:12px;
+}
+
 .reference-fit-choice {
-grid-template-columns:1fr;
+display:flex;
+width:100%;
+}
+
+.reference-fit-option {
+flex:1 1 0;
+}
+
+.reference-fit-card {
+padding:8px 6px;
+text-align:center;
+}
+
+.reference-preview-stage {
+padding:14px 8px 20px;
 }
 }

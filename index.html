@@ -11,7 +11,7 @@ href="assets/logo.svg"
 >
 <link
 rel="stylesheet"
-href="css/style.css?v=20261105g"
+href="css/style.css?v=20261120a"
 >
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -1418,80 +1418,90 @@ id="teacherReferencePreview"
 class="reference-preview"
 hidden
 >
+<div class="reference-fit-head">
+<h4 class="reference-fit-title">Reference Fit</h4>
+<p class="reference-preview-hint">
+Choose how the Reference Map fills the screen on each device. Pick a device to change it, then press Save Task Settings.
+</p>
+</div>
+<div class="reference-preview-grid" role="group" aria-label="Devices">
+<div data-device="iphone" data-kind="phone" class="reference-preview-device">
+<button type="button" class="reference-preview-pick" aria-pressed="false">
+<span class="reference-device-outline"><span class="reference-preview-frame"><img alt="Reference Map on an upright iPhone"></span></span>
+<span class="reference-device-name">iPhone upright</span>
+<span class="reference-device-fit"></span>
+<span class="reference-device-unsaved" title="Not saved yet" hidden></span>
+</button>
+</div>
+<div data-device="iphone-sideways" data-kind="phone" class="reference-preview-device">
+<button type="button" class="reference-preview-pick" aria-pressed="false">
+<span class="reference-device-outline"><span class="reference-preview-frame"><img alt="Reference Map on a sideways iPhone"></span></span>
+<span class="reference-device-name">iPhone sideways</span>
+<span class="reference-device-fit"></span>
+<span class="reference-device-unsaved" title="Not saved yet" hidden></span>
+</button>
+</div>
+<div data-device="ipad-upright" data-kind="tablet" class="reference-preview-device">
+<button type="button" class="reference-preview-pick" aria-pressed="false">
+<span class="reference-device-outline"><span class="reference-preview-frame"><img alt="Reference Map on an upright iPad"></span></span>
+<span class="reference-device-name">iPad upright</span>
+<span class="reference-device-fit"></span>
+<span class="reference-device-unsaved" title="Not saved yet" hidden></span>
+</button>
+</div>
+<div data-device="ipad-sideways" data-kind="tablet" class="reference-preview-device">
+<button type="button" class="reference-preview-pick" aria-pressed="false">
+<span class="reference-device-outline"><span class="reference-preview-frame"><img alt="Reference Map on a sideways iPad"></span></span>
+<span class="reference-device-name">iPad sideways</span>
+<span class="reference-device-fit"></span>
+<span class="reference-device-unsaved" title="Not saved yet" hidden></span>
+</button>
+</div>
+<div data-device="computer" data-kind="laptop" class="reference-preview-device is-selected">
+<button type="button" class="reference-preview-pick" aria-pressed="true">
+<span class="reference-device-outline"><span class="reference-preview-frame"><img alt="Reference Map on a computer"></span></span>
+<span class="reference-device-name">Computer</span>
+<span class="reference-device-fit"></span>
+<span class="reference-device-unsaved" title="Not saved yet" hidden></span>
+</button>
+</div>
+</div>
+<div class="reference-editor">
+<p class="reference-editor-title">Editing: <strong id="referenceEditingDevice">Computer</strong></p>
+<div class="reference-editor-controls">
 <fieldset class="reference-fit-choice">
-<legend>Reference Fit</legend>
+<legend class="visually-hidden">Fit on this device</legend>
 <label class="reference-fit-option">
 <input type="radio" name="referenceFit" value="stretch">
-<span class="reference-fit-card">
-<strong>Stretch</strong>
-<small>Fills the screen, but can look squashed</small>
-</span>
+<span class="reference-fit-card">Stretch</span>
 </label>
 <label class="reference-fit-option">
 <input type="radio" name="referenceFit" value="keep">
-<span class="reference-fit-card">
-<strong>Keep shape</strong>
-<small>Shows the whole image, with blank bars</small>
-</span>
+<span class="reference-fit-card">Keep shape</span>
 </label>
 <label class="reference-fit-option">
 <input type="radio" name="referenceFit" value="crop">
-<span class="reference-fit-card">
-<strong>Crop</strong>
-<small>Fills the screen, but cuts off the edges</small>
-</span>
+<span class="reference-fit-card">Crop</span>
 </label>
 </fieldset>
-<p class="reference-preview-hint">
-This is how students see the Reference Map. Tap a device to enlarge it, then press Save Task Settings to keep your choice.
-</p>
-<div class="reference-preview-grid">
-<figure data-device="iphone" class="reference-preview-device">
-<button type="button" class="reference-preview-pick" aria-pressed="false" aria-label="Enlarge iPhone upright">
-<span class="reference-preview-frame"><img alt="Reference Map on an upright iPhone"></span>
-</button>
-<figcaption>iPhone upright</figcaption>
-<span class="reference-crop-status" hidden></span>
-</figure>
-<figure data-device="iphone-sideways" class="reference-preview-device">
-<button type="button" class="reference-preview-pick" aria-pressed="false" aria-label="Enlarge iPhone sideways">
-<span class="reference-preview-frame"><img alt="Reference Map on a sideways iPhone"></span>
-</button>
-<figcaption>iPhone sideways</figcaption>
-<span class="reference-crop-status" hidden></span>
-</figure>
-<figure data-device="ipad-upright" class="reference-preview-device">
-<button type="button" class="reference-preview-pick" aria-pressed="false" aria-label="Enlarge iPad upright">
-<span class="reference-preview-frame"><img alt="Reference Map on an upright iPad"></span>
-</button>
-<figcaption>iPad upright</figcaption>
-<span class="reference-crop-status" hidden></span>
-</figure>
-<figure data-device="ipad-sideways" class="reference-preview-device">
-<button type="button" class="reference-preview-pick" aria-pressed="false" aria-label="Enlarge iPad sideways">
-<span class="reference-preview-frame"><img alt="Reference Map on a sideways iPad"></span>
-</button>
-<figcaption>iPad sideways</figcaption>
-<span class="reference-crop-status" hidden></span>
-</figure>
-<figure data-device="computer" class="reference-preview-device is-selected">
-<button type="button" class="reference-preview-pick" aria-pressed="true" aria-label="Enlarge Computer">
-<span class="reference-preview-frame"><img alt="Reference Map on a computer"></span>
-</button>
-<figcaption>Computer</figcaption>
-<span class="reference-crop-status" hidden></span>
-</figure>
+<button id="referenceFitAll" class="reference-fit-all" type="button">Use this for all devices</button>
 </div>
+<p id="referenceFitDescription" class="reference-fit-description"></p>
+<div class="reference-preview-stage">
+<div class="reference-device-outline reference-preview-shell" data-kind="laptop">
 <div class="reference-preview-large" data-device="computer">
 <img alt="Enlarged view of the Reference Map" draggable="false">
 </div>
+</div>
+</div>
 <div id="referenceCropTools" class="reference-crop-tools" hidden>
-<p>Drag the image to choose what students see on this device.</p>
+<p>Drag the image to choose what students see. Pinch or scroll to zoom.</p>
 <label class="reference-crop-zoom">
 Zoom
 <input id="referenceCropZoom" type="range" min="1" max="4" step="0.05" value="1">
 </label>
 <button id="referenceCropReset" class="reference-crop-reset" type="button">Reset</button>
+</div>
 </div>
 </div>
 </div>
@@ -2712,11 +2722,11 @@ Save
 </div>
 
 <!-- Change ?v= on these files whenever they change, so browsers stop using old copies. -->
-<script src="js/project-access.js?v=20261105g"></script>
-<script src="js/reference-fit.js?v=20261105g"></script>
-<script src="js/app.js?v=20261105g"></script>
-<script src="js/map-tools.js?v=20261105g"></script>
-<script src="js/revised-map.js?v=20261105g"></script>
-<script src="js/tutorial.js?v=20261105g"></script>
+<script src="js/project-access.js?v=20261120a"></script>
+<script src="js/reference-fit.js?v=20261120a"></script>
+<script src="js/app.js?v=20261120a"></script>
+<script src="js/map-tools.js?v=20261120a"></script>
+<script src="js/revised-map.js?v=20261120a"></script>
+<script src="js/tutorial.js?v=20261120a"></script>
 </body>
 </html>

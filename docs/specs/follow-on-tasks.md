@@ -32,7 +32,7 @@ The Hazard tool is an ordinary per-Task tool. A Teacher who wants mapping and ha
 5. As a Teacher, I want the confirmation screen to tell me students get a new Task Code and can also continue straight from their earlier map, so that I know what to tell the class.
 6. As a Teacher, I want to be able to cancel on the confirmation screen, so that nothing is created by accident.
 7. As a Teacher, I want the Follow-on Task to be set for the same Classes as the earlier Task, so that I don't have to choose them again.
-8. As a Teacher, I want the Follow-on Task to use the same Reference Map as the earlier Task, so that students compare against the same site.
+8. As a Teacher, I want the Follow-on Task to use the same Reference Map as the earlier Task, with the same Reference Fit and crop on every device, so that students compare against the same site and I don't have to set up each device again.
 9. As a Teacher, I want the Follow-on Task to allow the same tools as the earlier Task, plus the Hazard tool, so that the settings are right without fiddling.
 10. As a Teacher, I want to edit the title and instructions of the Follow-on Task before sharing it, so that I can explain the hazard activity.
 11. As a Teacher, I want to change the tools and Classes of the Follow-on Task like any other Task, so that I keep control.
@@ -120,7 +120,7 @@ The Hazard tool is an ordinary per-Task tool. A Teacher who wants mapping and ha
 ## Implementation Decisions
 
 - **Task link.** A Task gains an optional "follows on from" reference to one earlier Task. It is set only through "Create follow-on Task", and cannot be changed once any Project exists for the Follow-on Task. Chains (Task 3 from Task 2) need nothing special.
-- **Create follow-on Task (Teacher, front end).** It creates a new Task with the link, copying the earlier Task's Classes, Reference Map and allowed tools, with the Hazard tool switched on. It also gets a new Task Code, a suggested title ("<earlier title> — part 2") and empty instructions for the Teacher to fill in. It is only allowed for a Teacher of the earlier Task's Classes, under the existing Teacher-scoping rules (ADR 0001). A confirmation screen with the wording agreed in the grilling session comes first.
+- **Create follow-on Task (Teacher, front end).** It creates a new Task with the link, copying the earlier Task's Classes, Reference Map (with each device's Reference Fit and crop) and allowed tools, with the Hazard tool switched on. It also gets a new Task Code, a suggested title ("<earlier title> — part 2") and empty instructions for the Teacher to fill in. It is only allowed for a Teacher of the earlier Task's Classes, under the existing Teacher-scoping rules (ADR 0001). A confirmation screen with the wording agreed in the grilling session comes first.
 - **Starting a Follow-on Project (database).** The student project-loading functions, for Roster students and Guests, handle Follow-on Tasks. When a student with no Project yet for the Follow-on Task opens it:
   1. Find the student's Project for the earlier Task.
   2. If it exists: hand it in if it is still a draft (only after the student confirmed on the front end), create the new Project as a copy of its map, record which Project it was copied from, and give it the same Group members.

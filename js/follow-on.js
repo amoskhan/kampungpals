@@ -90,7 +90,9 @@ function effectiveTools(
 /*
 Who has handed in their map for a Task, for each Class:
   handedInMaps / handedInStudents        — Submitted or Marked
-  notHandedIn (names per map) / notHandedInStudents — still a draft
+  notHandedIn (names per map) / notHandedInIds / notHandedInStudents — still a draft
+  unreviewed (names per map) / unreviewedIds — handed in, with no Review yet
+  readyForFollowOn                       — nothing holds up a Follow-on Task
   noMap                                  — on the Roster, with no Project ("No map (absent?)")
 A student belongs to a map through its Group members or as its main student.
 Where a student has more than one map, the newest counts. Guests are never counted.
@@ -99,8 +101,15 @@ function handInSummary({
     classes,
     roster,
     projects,
-    members
+    members,
+    reviews
 }) {
+    const reviewed =
+        new Set(
+            (reviews || []).map(
+                review => review.submission_id
+            )
+        );
     const projectById =
         new Map(
             (projects || []).map(
@@ -159,6 +168,9 @@ function handInSummary({
 
             const handedIn = new Set();
             const notHandedIn = new Map();
+            const unreviewed = new Map();
+            // Original maps with no Review: these hold up a Follow-on Task.
+            const unreviewedOriginals = new Set();
             const noMap = [];
             let handedInStudents = 0;
             let notHandedInStudents = 0;
@@ -186,6 +198,18 @@ function handInSummary({
 
                     handedInStudents += 1;
                     handedIn.add(project.id);
+
+                    if (!reviewed.has(project.id)) {
+                        if (Number(project.submission_number || 1) < 2) {
+                            unreviewedOriginals.add(project.id);
+                        }
+
+                        if (!unreviewed.has(project.id)) {
+                            unreviewed.set(project.id, []);
+                        }
+
+                        unreviewed.get(project.id).push(student.student_name);
+                    }
                 }
             );
 
@@ -199,7 +223,23 @@ function handInSummary({
                 handedInStudents,
                 notHandedIn:
                     [...notHandedIn.values()],
+                // The draft maps, for "Hand in all".
+                notHandedInIds:
+                    [...notHandedIn.keys()],
                 notHandedInStudents,
+                // Handed in with no Review yet, for "Approve all handed-in maps".
+                unreviewed:
+                    [...unreviewed.values()],
+                unreviewedIds:
+                    [...unreviewed.keys()],
+                /*
+                Ready for a Follow-on Task: every map is handed in, and every
+                original map is Reviewed. A handed-in Revised Map needn't be.
+                Students with no map don't hold it up.
+                */
+                readyForFollowOn:
+                    notHandedIn.size === 0 &&
+                    unreviewedOriginals.size === 0,
                 noMap
             };
         }
@@ -320,8 +360,8 @@ function isReferenceShared(
 What happens when a student opens a Follow-on Task they have no Project for
 yet, from follow_on_start_info:
   "copy"      — start from a copy of their earlier map
-  "hand-in"   — their earlier map is still a draft: warn that starting hands it in
-  "blank"     — they had no earlier map: choose a Group of others who had none
+  "not-handed-in" — their earlier map is still a draft: ask the Teacher to hand it in
+  "blank"     — they had no earlier map: join a Group (a Guest can't take part)
   null        — not a Follow-on Task
 */
 function followOnStartStep(
@@ -335,8 +375,10 @@ function followOnStartStep(
         return "blank";
     }
 
+    // A Teacher hands in every map before a Follow-on Task exists, so a draft
+    // here means the Teacher must hand it in: the student can't.
     return info.earlier_status === "draft"
-        ? "hand-in"
+        ? "not-handed-in"
         : "copy";
 }
 

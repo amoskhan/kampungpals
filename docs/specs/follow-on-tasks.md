@@ -227,3 +227,16 @@ A student's copied Follow-on map was made, but they weren't a member of it, so M
 - **Cause.** The live `oe_student_project_for_task` differs from the copy in `docs/sql/follow-on-tasks/apply.sql`: it also counts a map with no members as belonging to its main student (`primary_student_id`). Starting a Follow-on Task creates the copy, then adds the earlier Group except "anyone who already has a map here", using that lookup. The new copy has no members yet, so its main student is skipped. A student working alone is left with no member record; in a Group started by another member, only the main student is left out. The live definition is kept in `docs/sql/follow-on-members/live-lookup.sql`.
 - **Fix** (`docs/sql/follow-on-members/`). Membership is checked on member records directly. The student starting a copy is always a member of it, or the start fails and nothing is kept. Any copy missing a student from the map it was copied from is reconnected, both once when the script runs and whenever one of its students opens the Task, so nobody gets a second copy. A student who has since started another map in that Task is left alone.
 - **Tests.** `tests/sql/` runs these scripts in PGlite against a minimal stand-in schema and the live lookup, including two tests that reproduce the bug.
+
+## A Class ready for the next lesson (21 Nov 2026, issues #33–#40)
+
+These replace stories 24, 25, 28 and 31 and the "does not stop the Teacher" rule above (GLOSSARY.md: Review, Revised Map, Follow-on Task).
+
+- **Approved or Returned** (`docs/sql/review-verdicts/`). Every Review is Approved or Returned. Only a Returned map can have a Revised Map (`docs/sql/revised-map-rules/`). A Teacher can switch a verdict, except Returned to Approved once a Revised Map is started.
+- **Batch buttons, per Class.** The hand-in summary has "Hand in all" (maps still being drawn) and "Approve all handed-in maps" (handed-in maps with no Review: Approved, no comments). They stay separate.
+- **The gate.** "Create" stays disabled until, in every Class, every map is handed in and every first map is Reviewed. A handed-in Revised Map needn't be Reviewed. Students with no map don't hold it up. The window names the Classes still waiting. It is checked by the page only: a Teacher could still create a Follow-on Task with a database tool.
+- **Which map is copied.** The Revised Map if one was started, otherwise the first map, even if Returned.
+- **No self hand-in.** Students no longer hand in an earlier draft by starting the Follow-on Task; they are asked to see their teacher.
+- **Absent students** (`docs/sql/follow-on-groups/`). Nobody starts blank. A Roster student with no earlier map joins a Group whose Follow-on map has started; a Guest with no earlier map can't take part.
+- **One latest map.** Once a Follow-on Task exists, no new Revised Map can be started for its Task (`docs/sql/revised-map-rules/`). One already started still opens.
+- **Hazards only.** A Follow-on map keeps the earlier map's buildings and routes; only Hazards can be added (`docs/sql/hazards-only/`).

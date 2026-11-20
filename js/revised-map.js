@@ -676,6 +676,142 @@
         0;
 
     /*
+    The current map's Review: "approved", "returned", null when it has none,
+    or undefined when it couldn't be checked (before the database step is
+    run), in which case Revised Maps work as before.
+    */
+    let currentReviewVerdict =
+
+        undefined;
+
+    // Whether the class has moved on to a Follow-on Task of this map's Task.
+    let currentTaskHasFollowOn =
+
+        false;
+
+    async function fetchTaskHasFollowOn(
+
+        submissionId
+
+    ) {
+
+        try {
+
+            const { data, error } =
+
+                await sb.rpc(
+
+                    "task_has_follow_on",
+
+                    {
+
+                        p_submission_id:
+
+                            submissionId
+
+                    }
+
+                );
+
+            return !error &&
+
+                (
+
+                    Array.isArray(
+
+                        data
+
+                    )
+
+                        ? data[0]
+
+                        : data
+
+                ) === true;
+
+        }
+
+        catch (
+
+            error
+
+        ) {
+
+            // Before the database step is run, nothing is closed.
+            return false;
+
+        }
+
+    }
+
+    async function fetchReviewVerdict(
+
+        submissionId
+
+    ) {
+
+        let data;
+        let error;
+
+        try {
+
+            ({ data, error } =
+
+                await sb.rpc(
+
+                    "review_verdict",
+
+                    {
+
+                        p_submission_id:
+
+                            submissionId
+
+                    }
+
+                ));
+
+        }
+
+        catch (
+
+            failure
+
+        ) {
+
+            error =
+
+                failure;
+
+        }
+
+        if (
+
+            error
+
+        ) {
+
+            return undefined;
+
+        }
+
+        return (
+
+            Array.isArray(
+
+                data
+
+            )
+
+                ? data[0]
+
+                : data
+
+        ) ?? null;
+
+    }
+
+    /*
     activeTaskScope is the task folder currently unlocked by a
     valid task code.
 
@@ -1671,6 +1807,27 @@ Enter a task code above to open a task.
                 ?.correction_submission_id ||
             null;
 
+        /*
+        Only a Returned map can have a Revised Map, and not once the class has
+        moved on to a Follow-on Task. One already started still opens.
+        */
+        if (
+            !correctionId &&
+            (
+                currentTaskHasFollowOn ||
+                (
+                    currentReviewVerdict !== undefined &&
+                    currentReviewVerdict !== "returned"
+                )
+            )
+        ) {
+            startCorrectionsButton.hidden =
+                true;
+            reviewActions.hidden =
+                viewOriginalButton.hidden;
+            return;
+        }
+
         startCorrectionsButton.hidden =
             false;
 
@@ -1850,6 +2007,25 @@ Enter a task code above to open a task.
                 parentReview
             );
 
+            return;
+        }
+
+        [currentReviewVerdict, currentTaskHasFollowOn] =
+            await Promise.all([
+                fetchReviewVerdict(
+                    submissionId
+                ),
+                fetchTaskHasFollowOn(
+                    submissionId
+                )
+            ]);
+
+        if (
+            requestId !==
+                correctionUiRequest ||
+            currentSubmission?.id !==
+                submissionId
+        ) {
             return;
         }
 

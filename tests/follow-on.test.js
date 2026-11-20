@@ -100,7 +100,7 @@ test("a Reference Map shared with another Task is kept", () => {
 test("what a student sees when starting a Follow-on Task", () => {
     assert.equal(followOnStartStep(undefined), null);
     assert.equal(followOnStartStep({ earlier_submission_id: null }), "blank");
-    assert.equal(followOnStartStep({ earlier_submission_id: "p1", earlier_status: "draft" }), "hand-in");
+    assert.equal(followOnStartStep({ earlier_submission_id: "p1", earlier_status: "draft" }), "not-handed-in");
     assert.equal(followOnStartStep({ earlier_submission_id: "p1", earlier_status: "submitted" }), "copy");
 });
 
@@ -134,6 +134,7 @@ test("the hand-in summary counts maps and students for each Class", () => {
     assert.equal(tg1.handedInMaps, 2);
     assert.equal(tg1.handedInStudents, 3);
     assert.deepEqual(tg1.notHandedIn, [["Chen"]]);
+    assert.deepEqual(tg1.notHandedInIds, ["p2"]);
     assert.equal(tg1.notHandedInStudents, 1);
     assert.deepEqual(tg1.noMap, ["Eli"]);
 
@@ -158,6 +159,66 @@ test("a student's newest map is the one that counts", () => {
 
     assert.equal(summary[0].handedInMaps, 0);
     assert.deepEqual(summary[0].notHandedIn, [["Amir"]]);
+    assert.deepEqual(summary[0].notHandedInIds, ["p2"], "the draft Revised Map is the one to hand in");
+});
+
+test("the hand-in summary lists handed-in maps that have no Review yet", () => {
+    const summary = handInSummary({
+        classes: [{ id: "c1", name: "TG1" }],
+        roster: [
+            { id: "amir", student_name: "Amir", class_id: "c1", register_no: 1 },
+            { id: "bea", student_name: "Bea", class_id: "c1", register_no: 2 },
+            { id: "chen", student_name: "Chen", class_id: "c1", register_no: 3 },
+            { id: "dan", student_name: "Dan", class_id: "c1", register_no: 4 }
+        ],
+        projects: [
+            { id: "p1", status: "submitted", class_id: "c1", primary_student_id: "amir", submission_number: 1 },
+            { id: "p2", status: "submitted", class_id: "c1", primary_student_id: "bea", submission_number: 1 },
+            { id: "p3", status: "draft", class_id: "c1", primary_student_id: "chen", submission_number: 1 },
+            // Dan's original was Returned; his handed-in Revised Map has no Review yet.
+            { id: "p4", status: "submitted", class_id: "c1", primary_student_id: "dan", submission_number: 1 },
+            { id: "p5", status: "submitted", class_id: "c1", primary_student_id: "dan", submission_number: 2 }
+        ],
+        members: [],
+        reviews: [
+            { submission_id: "p2", verdict: "approved" },
+            { submission_id: "p4", verdict: "returned" }
+        ]
+    });
+
+    assert.deepEqual(summary[0].unreviewed, [["Amir"], ["Dan"]]);
+    assert.deepEqual(summary[0].unreviewedIds, ["p1", "p5"]);
+});
+
+test("a Class is ready for a Follow-on Task once every map is handed in and every original is Reviewed", () => {
+    const base = {
+        classes: [{ id: "c1", name: "TG1" }],
+        roster: [
+            { id: "amir", student_name: "Amir", class_id: "c1" },
+            { id: "dan", student_name: "Dan", class_id: "c1" },
+            { id: "eli", student_name: "Eli", class_id: "c1" }
+        ],
+        members: []
+    };
+    const ready = (projects, reviews) =>
+        handInSummary({ ...base, projects, reviews })[0].readyForFollowOn;
+
+    const amir = { id: "p1", status: "submitted", class_id: "c1", primary_student_id: "amir", submission_number: 1 };
+    const danOriginal = { id: "p2", status: "submitted", class_id: "c1", primary_student_id: "dan", submission_number: 1 };
+    const danRevised = { id: "p3", status: "submitted", class_id: "c1", primary_student_id: "dan", submission_number: 2 };
+
+    // Eli has no map (absent): he never holds it up.
+    assert.equal(ready([amir], [{ submission_id: "p1" }]), true);
+    assert.equal(ready([amir], []), false, "Amir's original has no Review");
+    assert.equal(ready([{ ...amir, status: "draft" }], [{ submission_id: "p1" }]), false, "Amir's map isn't handed in");
+
+    // Dan's original was Returned; his handed-in Revised Map needn't be Reviewed.
+    assert.equal(ready([amir, danOriginal, danRevised], [{ submission_id: "p1" }, { submission_id: "p2" }]), true);
+    assert.equal(
+        ready([amir, danOriginal, { ...danRevised, status: "draft" }], [{ submission_id: "p1" }, { submission_id: "p2" }]),
+        false,
+        "a started Revised Map must be handed in"
+    );
 });
 
 test("a Hazards-only Task gives students only the Hazard tool and Select", () => {

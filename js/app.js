@@ -916,6 +916,67 @@ const reviewDraftNotice =
 const reviewHint =
     $("reviewHint");
 
+// Approved or Returned (GLOSSARY.md), chosen when saving a Review.
+const reviewVerdictInputs =
+    Array.from(
+        document.querySelectorAll(
+            'input[name="reviewVerdict"]'
+        )
+    );
+
+const reviewVerdictNote =
+    $("reviewVerdictNote");
+
+// Whether the map being reviewed already has a Revised Map started.
+let reviewRevisedMapStarted =
+    false;
+
+function chosenReviewVerdict() {
+    return reviewVerdictInputs.find(
+        input =>
+            input.checked
+    )?.value || null;
+}
+
+function showReviewVerdict(
+    verdict
+) {
+    reviewVerdictInputs.forEach(
+        input => {
+            input.checked =
+                input.value === verdict;
+        }
+    );
+    applyReviewVerdictLock();
+}
+
+// Once a Revised Map is started, its Returned Review stays Returned.
+function applyReviewVerdictLock() {
+    const locked =
+        reviewRevisedMapStarted &&
+        chosenReviewVerdict() === "returned";
+    reviewVerdictNote.hidden =
+        !locked;
+    reviewVerdictInputs.forEach(
+        input => {
+            input.disabled =
+                !reviewIsHandedIn() ||
+                (
+                    locked &&
+                    input.value === "approved"
+                );
+        }
+    );
+}
+
+reviewVerdictInputs.forEach(
+    input =>
+        input.addEventListener(
+            "change",
+            applyReviewVerdictLock
+        )
+);
+
 
 const handInForThemButton =
     $("handInForThemButton");
@@ -939,6 +1000,10 @@ const studentReviewDate =
 
 const studentTeacherFeedbackText =
     $("studentTeacherFeedbackText");
+
+const studentReviewVerdict =
+    $("studentReviewVerdict");
+
 
 const toggleStudentMarkedWorkButton =
     $("toggleStudentMarkedWorkButton");
@@ -12700,8 +12765,8 @@ function resetStudentReviewState() {
 
     studentTeacherFeedbackText.textContent =
         "";
-
-
+    studentReviewVerdict.hidden =
+        true;
     toggleStudentMarkedWorkButton.hidden =
         false;
 
@@ -12710,6 +12775,66 @@ function resetStudentReviewState() {
         "Hide teacher markings";
 }
 
+
+// Says whether the student's map was Approved or Returned.
+async function showStudentReviewVerdict(
+    submissionId
+) {
+    studentReviewVerdict.hidden =
+        true;
+
+    if (!submissionId) {
+        return;
+    }
+
+    let data;
+    let error;
+
+    try {
+        ({ data, error } =
+            await sb.rpc(
+                "review_verdict",
+                {
+                    p_submission_id:
+                        submissionId
+                }
+            ));
+    }
+    catch (failure) {
+        error =
+            failure;
+    }
+
+    // Before the database step is run there is simply no verdict to show.
+    if (
+        error ||
+        currentSubmission?.id !== submissionId ||
+        studentReviewPanel.hidden
+    ) {
+        return;
+    }
+
+    const verdict =
+        Array.isArray(data)
+            ? data[0]
+            : data;
+
+    if (
+        verdict !== "approved" &&
+        verdict !== "returned"
+    ) {
+        return;
+    }
+
+    studentReviewVerdict.textContent =
+        verdict === "approved"
+            ? "Approved: no changes needed."
+            : "Returned: your teacher would like changes. See the feedback below.";
+    studentReviewVerdict.className =
+        `student-review-verdict is-${verdict}`;
+    studentReviewVerdict.hidden =
+        false;
+}
 
 function applyStudentReviewSnapshot(
     value
@@ -12778,9 +12903,10 @@ function applyStudentReviewSnapshot(
 
     studentReviewPanel.hidden =
         false;
-
-
     applyStudentEditLockUI();
+    showStudentReviewVerdict(
+        currentSubmission?.id
+    );
 }
 
 
@@ -13234,6 +13360,7 @@ function applyReviewMarkingState() {
 
     reviewHint.hidden =
         !handedIn;
+    applyReviewVerdictLock();
 
     // Only a handed-in map can be downloaded to print. It goes back at the end
     // of the toolbar if the toolbar was rebuilt.
@@ -20061,6 +20188,9 @@ const cancelFollowOnButton =
 const confirmFollowOnButton =
     $("confirmFollowOnButton");
 
+const followOnReadyNote =
+    $("followOnReadyNote");
+
 // "Follows on from: School map" under the heading of a Follow-on Task.
 function showTeacherTaskFollowsOn(
     task
@@ -20203,11 +20333,28 @@ async function loadHandInSummary(
                 .eq("task_id", task.id)
         ]);
 
+    const projectRows =
+        rowsOrThrow(projects);
+
+    const reviews =
+        projectRows.length
+            ? rowsOrThrow(
+                await sb
+                    .from("submission_reviews")
+                    .select("submission_id")
+                    .in(
+                        "submission_id",
+                        projectRows.map(project => project.id)
+                    )
+            )
+            : [];
+
     return handInSummary({
         classes,
         roster: rowsOrThrow(roster),
-        projects: rowsOrThrow(projects),
-        members: rowsOrThrow(members)
+        projects: projectRows,
+        members: rowsOrThrow(members),
+        reviews
     });
 }
 
@@ -20251,24 +20398,173 @@ function plural(
     return `${count} ${word}${count === 1 ? "" : "s"}`;
 }
 
+// A per-Class action under the hand-in summary, such as "Hand in all".
+function classBatchButton(
+    label,
+    action
+) {
+    const button =
+        document.createElement("button");
+    button.type =
+        "button";
+    button.className =
+        "quiet-button follow-on-batch-button";
+    button.textContent =
+        label;
+    button.addEventListener(
+        "click",
+        async () => {
+            button.disabled =
+                true;
+            try {
+                await action();
+            }
+            catch (error) {
+                console.error(
+                    error
+                );
+                alert(
+                    error.message ||
+                    "That didn’t work. Please try again."
+                );
+            }
+            finally {
+                button.disabled =
+                    false;
+            }
+        }
+    );
+    return button;
+}
+
+/*
+"Hand in all": every map in one Class still being drawn for a Task, handed
+in as if the Teacher pressed "Hand in for them" on each.
+*/
+async function handInAllForClass(
+    item,
+    refresh
+) {
+    const count =
+        item.notHandedInIds.length;
+    if (
+        !count ||
+        !confirm(
+            `Hand in ${plural(count, "map")} for ${item.className}?
+
+Students won't be able to change them afterwards.`
+        )
+    ) {
+        return;
+    }
+    const { error } =
+        await sb
+            .from("submissions")
+            .update({
+                status:
+                    "submitted",
+                submitted_at:
+                    new Date().toISOString()
+            })
+            .in("id", item.notHandedInIds)
+            .eq("status", "draft");
+    if (error) {
+        throw error;
+    }
+    await refresh();
+}
+
+/*
+"Approve all handed-in maps": every map in one Class that is handed in with
+no Review yet gets an Approved Review with no comments. Maps already Reviewed
+are never changed.
+*/
+async function approveAllForClass(
+    item,
+    refresh
+) {
+    const count =
+        item.unreviewedIds.length;
+    if (
+        !count ||
+        !confirm(
+            `Approve ${plural(count, "handed-in map")} for ${item.className}?
+
+Each is Approved with no comments. You can still open any of them and change its Review.`
+        )
+    ) {
+        return;
+    }
+    const savedAt =
+        new Date().toISOString();
+    const { error } =
+        await sb
+            .from("submission_reviews")
+            .upsert(
+                item.unreviewedIds.map(
+                    id => ({
+                        submission_id:
+                            id,
+                        teacher_id:
+                            currentTeacherUser.id,
+                        teacher_feedback:
+                            "",
+                        teacher_annotations:
+                            [],
+                        verdict:
+                            "approved",
+                        updated_at:
+                            savedAt
+                    })
+                ),
+                {
+                    onConflict:
+                        "submission_id",
+                    // Someone may have Reviewed one meanwhile: keep theirs.
+                    ignoreDuplicates:
+                        true
+                }
+            );
+    if (error) {
+        throw error;
+    }
+    await refresh();
+}
+
 /*
 Fills container with who has handed in their map for a Task, for each of
-this Teacher's Classes. isStillWanted() is asked once the counts arrive, in
-case the window has closed or moved on meanwhile.
+this Teacher's Classes, with buttons to sort out each Class. isStillWanted()
+is asked once the counts arrive, in case the window has closed or moved on
+meanwhile.
 */
 async function fillHandInSummary(
     container,
     task,
-    {
+    options = {}
+) {
+    const {
         isStillWanted =
             () => true,
         failureText =
             "Couldn’t check who has handed in.",
         // Keep showing the last counts while new ones load.
         quiet =
-            false
-    } = {}
-) {
+            false,
+        // Told the summary once it loads, or null if it couldn't be.
+        onSummary =
+            () => {}
+    } = options;
+    const refresh =
+        () =>
+            fillHandInSummary(
+                container,
+                task,
+                {
+                    ...options,
+                    quiet:
+                        true
+                }
+            );
     if (
         !quiet ||
         !container.childElementCount
@@ -20286,7 +20582,9 @@ async function fillHandInSummary(
         if (!isStillWanted()) {
             return;
         }
-
+        onSummary(
+            summary
+        );
         container.textContent =
             "";
 
@@ -20336,6 +20634,40 @@ async function fillHandInSummary(
                     )
                 );
 
+                if (item.notHandedInIds.length) {
+                    block.appendChild(
+                        classBatchButton(
+                            `Hand in all (${plural(item.notHandedInIds.length, "map")})`,
+                            () =>
+                                handInAllForClass(
+                                    item,
+                                    refresh
+                                )
+                        )
+                    );
+                }
+                block.appendChild(
+                    handInLine(
+                        "Not reviewed yet",
+                        plural(item.unreviewed.length, "map"),
+                        item.unreviewed
+                            .map(names => names.join(" & "))
+                            .join(", "),
+                        "waiting"
+                    )
+                );
+                if (item.unreviewedIds.length) {
+                    block.appendChild(
+                        classBatchButton(
+                            `Approve all handed-in maps (${item.unreviewedIds.length})`,
+                            () =>
+                                approveAllForClass(
+                                    item,
+                                    refresh
+                                )
+                        )
+                    );
+                }
                 block.appendChild(
                     handInLine(
                         "No map (absent?)",
@@ -20356,15 +20688,57 @@ async function fillHandInSummary(
         );
 
         if (isStillWanted()) {
+            onSummary(
+                null
+            );
             container.textContent =
                 failureText;
         }
     }
 }
 
+/*
+A Follow-on Task can be created once every Class is ready: every map handed
+in and every first map Reviewed (GLOSSARY.md: Follow-on Task).
+*/
+function setFollowOnReady(
+    summary
+) {
+    const waiting =
+        (summary || [])
+            .filter(
+                item => !item.readyForFollowOn
+            )
+            .map(
+                item => item.className
+            );
+    const ready =
+        Boolean(summary) &&
+        !waiting.length;
+    confirmFollowOnButton.disabled =
+        !ready;
+    followOnReadyNote.textContent =
+        !summary
+            ? "Close this and try again: you can create the Task once we can check every map is handed in and Reviewed."
+            : ready
+                ? "Every map is handed in and Reviewed. Students with no map join a Group in the new Task."
+                : `Waiting for ${waiting.join(", ")}: every map must be handed in and every first map Reviewed. Use the buttons above, or open a map to Review it.`;
+    followOnReadyNote.classList.toggle(
+        "is-waiting",
+        !ready
+    );
+}
+
 function showFollowOnHandIn(
     task
 ) {
+    setFollowOnReady(
+        []
+    );
+    confirmFollowOnButton.disabled =
+        true;
+    followOnReadyNote.textContent =
+        "Checking every map is handed in and Reviewed…";
     return fillHandInSummary(
         followOnHandIn,
         task,
@@ -20375,7 +20749,9 @@ function showFollowOnHandIn(
                     !followOnModal.hidden &&
                     selectedTeacherTask?.id === task.id,
             failureText:
-                "Couldn’t check who has handed in. You can still create the Task."
+                "Couldn’t check who has handed in.",
+            onSummary:
+                setFollowOnReady
         }
     );
 }
@@ -24595,37 +24971,46 @@ async function openSubmissionReview(
     );
 
 
-    const reviewResult =
-        await sb
-            .from(
-                "submission_reviews"
-            )
-            .select(
-                `
-teacher_annotations,
-teacher_feedback,
-updated_at
-`
-            )
-            .eq(
-                "submission_id",
-                id
-            )
-            .maybeSingle();
-
+    const [reviewResult, revisedResult] =
+        await Promise.all([
+            sb
+                .from(
+                    "submission_reviews"
+                )
+                .select(
+                    "*"
+                )
+                .eq(
+                    "submission_id",
+                    id
+                )
+                .maybeSingle(),
+            sb
+                .from(
+                    "submissions"
+                )
+                .select(
+                    "id"
+                )
+                .eq(
+                    "parent_submission_id",
+                    id
+                )
+        ]);
 
     if (
         reviewResult.error
     ) {
-
         alert(
             reviewResult.error.message
         );
-
-
         return;
     }
 
+    reviewRevisedMapStarted =
+        Boolean(
+            revisedResult.data?.length
+        );
 
     reviewLastSeenSavedAt =
         reviewResult.data?.updated_at ??
@@ -24648,6 +25033,11 @@ updated_at
     teacherFeedbackText.value =
         reviewResult.data?.teacher_feedback ??
         "";
+
+    showReviewVerdict(
+        reviewResult.data?.verdict ||
+        null
+    );
 
 
     reviewStudentName.textContent =
@@ -24919,20 +25309,24 @@ saveTeacherFeedbackButton.addEventListener(
     async () => {
 
         if (
-
             !reviewSubmission ||
-
             !currentTeacherUser
-
         ) {
-
             return;
         }
 
+        const verdict =
+            chosenReviewVerdict();
+
+        if (!verdict) {
+            statusBar.textContent =
+                "Choose Approved or Returned first.";
+            reviewVerdictInputs[0]?.focus();
+            return;
+        }
 
         saveTeacherFeedbackButton.disabled =
             true;
-
 
         saveTeacherFeedbackButton.textContent =
             "Saving…";
@@ -25001,7 +25395,7 @@ saveTeacherFeedbackButton.addEventListener(
 
                             teacher_feedback:
                                 teacherFeedbackText.value,
-
+                            verdict,
                             updated_at:
                                 savedAt
                         },
@@ -25074,10 +25468,10 @@ saveTeacherFeedbackButton.addEventListener(
 
 
             alert(
-
-                error.message ||
-
-                "Could not save teacher feedback."
+                String(error.message || "").includes("REVISED_MAP_STARTED")
+                    ? "A Revised Map has been started, so this Review stays Returned."
+                    : error.message ||
+                        "Could not save teacher feedback."
             );
 
 
@@ -26948,52 +27342,6 @@ async function fillEmptyFollowOnProject(
 }
 
 // Asks before an earlier draft is handed in. Resolves true to go ahead.
-function confirmHandInEarlier(
-    earlierTitle
-) {
-    const modal =
-        $("handInEarlierModal");
-
-    $("handInEarlierTask").textContent =
-        earlierTitle ||
-        "the earlier Task";
-
-    modal.hidden =
-        false;
-
-    document.body.classList.add(
-        "modal-open"
-    );
-
-    return new Promise(
-        resolve => {
-            const finish =
-                answer => {
-                    modal.hidden =
-                        true;
-
-                    document.body.classList.remove(
-                        "modal-open"
-                    );
-
-                    $("confirmHandInEarlierButton").onclick =
-                        null;
-
-                    $("cancelHandInEarlierButton").onclick =
-                        null;
-
-                    resolve(answer);
-                };
-
-            $("confirmHandInEarlierButton").onclick =
-                () => finish(true);
-
-            $("cancelHandInEarlierButton").onclick =
-                () => finish(false);
-        }
-    );
-}
-
 /*
 Opening a Follow-on Task the student has no Project for yet. Returns false when
 the Task is not a Follow-on Task, so the usual start can carry on.
@@ -27039,51 +27387,28 @@ async function startFollowOnProject(
         return false;
     }
 
-    // No earlier map: choose a Group from classmates who had none either.
-    if (
-        step === "blank" &&
-        studentId
-    ) {
-        const free =
-            await followOnRows(
-                "student_list_follow_on_free",
-                {
-                    p_task_code:
-                        task.task_code,
-                    p_student_id:
-                        studentId
-                }
+    /*
+    No earlier map (absent from the earlier lesson): a student joins a Group
+    whose Follow-on map has started; a Guest, never in a Group, can't take part.
+    */
+    if (step === "blank") {
+        if (!studentId) {
+            throw new Error(
+                "This Task builds on an earlier map you don't have. Ask your teacher."
             );
-
-        pendingFollowOnFree =
-            new Set(
-                free.map(
-                    student => student.student_id
-                )
-            );
-
-        pendingTaskLookup =
-            task;
-
-        await showGroupSelection();
-
+        }
+        await openJoinGroup(
+            task,
+            studentId
+        );
         return true;
     }
 
-    let handIn =
-        false;
-
-    if (step === "hand-in") {
-        if (
-            !await confirmHandInEarlier(
-                info.earlier_task_title
-            )
-        ) {
-            return true;
-        }
-
-        handIn =
-            true;
+    // Only the Teacher hands in maps; a Follow-on Task normally waits for them all.
+    if (step === "not-handed-in") {
+        throw new Error(
+            `Your map for ${info.earlier_task_title || "the earlier Task"} hasn't been handed in yet. Ask your teacher to hand it in.`
+        );
     }
 
     const [submissionId] =
@@ -27096,18 +27421,14 @@ async function startFollowOnProject(
                     p_student_id:
                         studentId,
                     p_member_ids:
-                        [],
-                    p_hand_in_earlier:
-                        handIn
+                        []
                 }
             )
             : await followOnRows(
                 "guest_start_follow_on_project",
                 {
                     p_task_code:
-                        task.task_code,
-                    p_hand_in_earlier:
-                        handIn
+                        task.task_code
                 }
             );
 
@@ -27117,6 +27438,155 @@ async function startFollowOnProject(
 
     return true;
 }
+
+/* ---------- Join a Group (no earlier map) ---------- */
+
+let pendingJoinGroup =
+    null;
+
+async function openJoinGroup(
+    task,
+    studentId
+) {
+    const groups =
+        await followOnRows(
+            "student_list_follow_on_groups",
+            {
+                p_task_code:
+                    task.task_code,
+                p_student_id:
+                    studentId
+            }
+        );
+    const list =
+        $("joinGroupList");
+    list.innerHTML =
+        groups.length
+            ? ""
+            : '<p class="helper-text">No Group has opened this Task yet. Ask your Group to open it, then try again.</p>';
+    groups.forEach(
+        group => {
+            const label =
+                document.createElement(
+                    "label"
+                );
+            label.className =
+                "group-member-option";
+            const input =
+                document.createElement(
+                    "input"
+                );
+            input.type =
+                "radio";
+            input.name =
+                "joinGroup";
+            input.value =
+                group.submission_id;
+            const name =
+                document.createElement(
+                    "span"
+                );
+            name.textContent =
+                group.group_name ||
+                "Group";
+            label.append(
+                input,
+                name
+            );
+            list.appendChild(
+                label
+            );
+        }
+    );
+    pendingJoinGroup = {
+        task,
+        studentId
+    };
+    $("joinGroupError").hidden =
+        true;
+    $("confirmJoinGroupButton").disabled =
+        !groups.length;
+    $("joinGroupModal").hidden =
+        false;
+    document.body.classList.add(
+        "modal-open"
+    );
+}
+
+function closeJoinGroup() {
+    pendingJoinGroup =
+        null;
+    $("joinGroupModal").hidden =
+        true;
+    document.body.classList.remove(
+        "modal-open"
+    );
+}
+
+$("cancelJoinGroupButton").addEventListener(
+    "click",
+    closeJoinGroup
+);
+
+$("confirmJoinGroupButton").addEventListener(
+    "click",
+    async () => {
+        const chosen =
+            $("joinGroupList")
+                .querySelector(
+                    'input[name="joinGroup"]:checked'
+                );
+        const error =
+            $("joinGroupError");
+        if (!chosen) {
+            error.textContent =
+                "Choose a Group to join.";
+            error.hidden =
+                false;
+            return;
+        }
+        if (!pendingJoinGroup) {
+            return;
+        }
+        const button =
+            $("confirmJoinGroupButton");
+        button.disabled =
+            true;
+        try {
+            const [submissionId] =
+                await followOnRows(
+                    "student_join_follow_on_group",
+                    {
+                        p_task_code:
+                            pendingJoinGroup.task.task_code,
+                        p_student_id:
+                            pendingJoinGroup.studentId,
+                        p_submission_id:
+                            chosen.value
+                    }
+                );
+            closeJoinGroup();
+            await loadStudentProject(
+                submissionId ||
+                chosen.value
+            );
+        }
+        catch (failure) {
+            console.error(
+                failure
+            );
+            error.textContent =
+                failure.message ||
+                "Could not join this Group.";
+            error.hidden =
+                false;
+        }
+        finally {
+            button.disabled =
+                false;
+        }
+    }
+);
 
 // "Continue in …": open the Follow-on Task straight from the earlier map.
 async function continueInFollowOnTask(

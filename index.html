@@ -11,7 +11,7 @@ href="assets/logo.svg"
 >
 <link
 rel="stylesheet"
-href="css/style.css?v=20261121b"
+href="css/style.css?v=20261121c"
 >
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -836,6 +836,51 @@ id="teacherFeedbackText"
 rows="4"
 placeholder="Write feedback for the student..."
 ></textarea>
+<fieldset
+id="reviewVerdictField"
+class="review-verdict"
+>
+<legend>
+Your decision
+</legend>
+<label>
+<input
+type="radio"
+name="reviewVerdict"
+value="approved"
+>
+<span>
+<strong>
+Approved
+</strong>
+<small>
+Fine as it is. No second draft.
+</small>
+</span>
+</label>
+<label>
+<input
+type="radio"
+name="reviewVerdict"
+value="returned"
+>
+<span>
+<strong>
+Returned
+</strong>
+<small>
+Needs a second draft: the student makes a Revised Map.
+</small>
+</span>
+</label>
+<p
+id="reviewVerdictNote"
+class="review-hint"
+hidden
+>
+A Revised Map has been started, so this stays Returned.
+</p>
+</fieldset>
 </div>
 
 <div class="review-actions">
@@ -891,6 +936,12 @@ Marked work
 <p
 id="studentReviewDate"
 class="student-review-date"
+></p>
+
+<p
+id="studentReviewVerdict"
+class="student-review-verdict"
+hidden
 ></p>
 
 <p
@@ -2314,8 +2365,8 @@ Who has handed in their map?
 <div id="followOnHandIn" class="follow-on-hand-in-list">
 Checking…
 </div>
-<p class="follow-on-hand-in-note">
-Students who haven’t handed in will be asked to hand in their map when they open the new Task. You can also close this and use <strong>Hand in for them</strong> first.
+<p id="followOnReadyNote" class="follow-on-hand-in-note">
+Every map must be handed in and every first map Reviewed before you can create the Task. Students with no map don’t hold it up.
 </p>
 </div>
 
@@ -2366,29 +2417,40 @@ Create follow-on Task
 </div>
 
 <div
-id="handInEarlierModal"
+id="joinGroupModal"
 class="modal-overlay"
 hidden
 >
 
-<div class="object-modal" role="dialog" aria-modal="true" aria-labelledby="handInEarlierTitle">
+<div class="object-modal" role="dialog" aria-modal="true" aria-labelledby="joinGroupTitle">
 
 <div class="modal-step-label">
-BEFORE YOU START
+YOUR GROUP
 </div>
 
-<h2 id="handInEarlierTitle">
-Hand in your earlier map?
+<h2 id="joinGroupTitle">
+Join a Group
 </h2>
 
 <p class="modal-description">
-Your map for <strong id="handInEarlierTask"></strong> has not been handed in yet. Starting this Task hands it in for your Group, and you carry on from a copy of it here. You cannot change the earlier map after that.
+You had no map in the earlier Task, so join a Group that has one and find Hazards together.
 </p>
+
+<div
+id="joinGroupList"
+class="group-members-list"
+></div>
+
+<div
+id="joinGroupError"
+class="modal-error"
+hidden
+></div>
 
 <div class="modal-actions">
 
 <button
-id="cancelHandInEarlierButton"
+id="cancelJoinGroupButton"
 class="modal-secondary-button"
 type="button"
 >
@@ -2396,11 +2458,11 @@ Cancel
 </button>
 
 <button
-id="confirmHandInEarlierButton"
+id="confirmJoinGroupButton"
 class="modal-primary-button"
 type="button"
 >
-Hand in and start
+Join Group
 </button>
 
 </div>
@@ -3079,13 +3141,13 @@ Save
 </div>
 
 <!-- Change ?v= on these files whenever they change, so browsers stop using old copies. -->
-<script src="js/project-access.js?v=20261121b"></script>
-<script src="js/reference-fit.js?v=20261121b"></script>
-<script src="js/follow-on.js?v=20261121b"></script>
-<script src="js/map-downloads.js?v=20261121b"></script>
-<script src="js/app.js?v=20261121b"></script>
-<script src="js/map-tools.js?v=20261121b"></script>
-<script src="js/revised-map.js?v=20261121b"></script>
-<script src="js/tutorial.js?v=20261121b"></script>
+<script src="js/project-access.js?v=20261121c"></script>
+<script src="js/reference-fit.js?v=20261121c"></script>
+<script src="js/follow-on.js?v=20261121c"></script>
+<script src="js/map-downloads.js?v=20261121c"></script>
+<script src="js/app.js?v=20261121c"></script>
+<script src="js/map-tools.js?v=20261121c"></script>
+<script src="js/revised-map.js?v=20261121c"></script>
+<script src="js/tutorial.js?v=20261121c"></script>
 </body>
 </html>

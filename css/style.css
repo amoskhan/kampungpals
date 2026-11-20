@@ -9351,10 +9351,22 @@ border-left-color:#d9822b;
 border-left-color:#9aa3ad;
 }
 
+.follow-on-batch-button {
+margin:6px 0 2px 13px;
+min-height:36px;
+padding:6px 12px;
+font-size:14px;
+}
+
 .follow-on-hand-in-note {
 margin:8px 0 0;
 color:#5b6670;
 font-size:13px;
+}
+
+.follow-on-hand-in-note.is-waiting {
+color:#9a4b00;
+font-weight:600;
 }
 
 .follow-on-field {
@@ -9417,4 +9429,66 @@ cursor:pointer;
 
 .gallery-hand-in {
 margin:0 0 16px;
+}
+
+/* Approved or Returned, chosen when saving a Review. */
+.review-verdict {
+margin:12px 0 0;
+padding:0;
+border:0;
+}
+
+.review-verdict legend {
+margin-bottom:4px;
+font-size:12px;
+font-weight:800;
+}
+
+.teacher-feedback-panel .review-verdict label {
+display:flex;
+gap:8px;
+align-items:flex-start;
+margin:6px 0 0;
+font-weight:400;
+cursor:pointer;
+}
+
+.review-verdict input {
+margin-top:3px;
+}
+
+.review-verdict label span {
+display:flex;
+flex-direction:column;
+}
+
+.review-verdict strong {
+font-size:14px;
+}
+
+.review-verdict small {
+color:var(--muted);
+font-size:12px;
+}
+
+.review-verdict input:disabled + span {
+opacity:.5;
+}
+
+.review-verdict .review-hint {
+max-width:none;
+margin-top:6px;
+}
+
+.student-review-verdict {
+margin:6px 0 0;
+font-weight:800;
+}
+
+.student-review-verdict.is-returned {
+color:#a4541a;
+}
+
+.student-review-verdict.is-approved {
+color:var(--forest-dark);
 }

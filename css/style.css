@@ -9289,3 +9289,10 @@ margin:0 0 8px;
 color:#5b6670;
 font-size:13px;
 }
+
+.map-format-progress {
+margin:0 0 8px;
+color:var(--forest-dark);
+font-size:14px;
+font-weight:700;
+}

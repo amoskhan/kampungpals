@@ -25518,9 +25518,12 @@ async function downloadMapPNG() {
     }
 }
 
-// jsPDF is loaded only when a PDF is asked for, so the page stays light.
+// jsPDF and JSZip are loaded only when needed, so the page stays light.
 const JSPDF_URL =
     "https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js";
+
+const JSZIP_URL =
+    "https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js";
 
 const loadedScripts =
     new Map();
@@ -25546,7 +25549,7 @@ function loadScriptOnce(
                         () => {
                             loadedScripts.delete(url);
                             reject(
-                                new Error("The PDF maker could not be loaded. Check the internet connection and try again.")
+                                new Error("Part of the download could not be loaded. Check the internet connection and try again.")
                             );
                         };
 
@@ -25680,9 +25683,16 @@ const mapFormatError =
 let onMapFormatChosen =
     null;
 
+// Counts up whenever the window closes, so a running Download all can stop.
+let downloadAllRun =
+    0;
+
 function closeMapFormatModal() {
     mapFormatModal.hidden =
         true;
+
+    // A Download all still running stops at the next map.
+    downloadAllRun += 1;
 
     onMapFormatChosen =
         null;
@@ -25692,19 +25702,39 @@ function closeMapFormatModal() {
     );
 }
 
+// "Preparing map 3 of 20…" while Download all works.
+function setMapFormatProgress(
+    text
+) {
+    const progress =
+        $("mapFormatProgress");
+
+    progress.textContent =
+        text || "";
+
+    progress.hidden =
+        !text;
+}
+
 /*
-Opens the window. save(format) makes and saves the file; the window stays
-open with a message if it fails, and closes once it is saved.
+Opens the window. save(format, setProgress) makes and saves the file(s); the
+window stays open with a message if it fails, and closes once saved.
 */
 function openMapFormatModal(
+    title,
     description,
     save
 ) {
+    $("mapFormatTitle").textContent =
+        title;
+
     $("mapFormatFor").textContent =
         description;
 
     mapFormatError.hidden =
         true;
+
+    setMapFormatProgress("");
 
     mapFormatOptions.forEach(
         option => {
@@ -25750,17 +25780,20 @@ mapFormatOptions.forEach(
 
                 try {
                     await save(
-                        option.dataset.format
+                        option.dataset.format,
+                        setMapFormatProgress
                     );
 
                     closeMapFormatModal();
                 }
 
                 catch (error) {
-                    console.error(
-                        "Could not download the map:",
-                        error
-                    );
+                    if (!error.forTeacher) {
+                        console.error(
+                            "Could not download the map:",
+                            error
+                        );
+                    }
 
                     mapFormatError.textContent =
                         error.message ||
@@ -25768,6 +25801,8 @@ mapFormatOptions.forEach(
 
                     mapFormatError.hidden =
                         false;
+
+                    setMapFormatProgress("");
 
                     mapFormatOptions.forEach(
                         item => {
@@ -25783,6 +25818,168 @@ mapFormatOptions.forEach(
 $("cancelMapFormatButton").addEventListener(
     "click",
     closeMapFormatModal
+);
+
+/* ---------- Teacher: Download all (Gallery) ---------- */
+
+/*
+Every handed-in map for the Gallery's Task, one file each in the chosen
+format, in one ZIP folder. Each map is drawn from its saved data in turn,
+then the map that was open before is put back.
+*/
+async function downloadAllMaps(
+    format,
+    setProgress = () => {}
+) {
+    const task =
+        selectedTeacherTask;
+
+    const run =
+        downloadAllRun;
+
+    setProgress(
+        "Finding handed-in maps…"
+    );
+
+    const [projects, members] =
+        await Promise.all([
+            sb
+                .from("submissions")
+                .select("id,student_name,class_name,group_name,status,updated_at,submitted_at,submission_number")
+                .eq("task_id", task.id),
+            sb
+                .from("submission_members")
+                .select("submission_id,student_id")
+                .eq("task_id", task.id)
+        ]);
+
+    if (projects.error) {
+        throw projects.error;
+    }
+
+    if (members.error) {
+        throw members.error;
+    }
+
+    const files =
+        mapsToDownload({
+            projects: projects.data || [],
+            members: members.data || [],
+            taskTitle: task.title
+        });
+
+    if (!files.length) {
+        const nothing =
+            new Error(
+                "No maps have been handed in for this Task yet, so there is nothing to download."
+            );
+
+        // A message for the Teacher, not a fault.
+        nothing.forTeacher =
+            true;
+
+        throw nothing;
+    }
+
+    const maps =
+        await sb
+            .from("submissions")
+            .select("id,map_data")
+            .in("id", files.map(file => file.submission.id));
+
+    if (maps.error) {
+        throw maps.error;
+    }
+
+    const mapData =
+        new Map(
+            (maps.data || []).map(
+                row => [row.id, row.map_data]
+            )
+        );
+
+    await loadScriptOnce(
+        JSZIP_URL
+    );
+
+    const zip =
+        new window.JSZip();
+
+    const extension =
+        MAP_FORMATS[format].extension;
+
+    const openMap =
+        serialiseMap();
+
+    try {
+        for (const [index, file] of files.entries()) {
+            // The window was closed: stop without saving.
+            if (run !== downloadAllRun) {
+                return;
+            }
+
+            setProgress(
+                `Preparing map ${index + 1} of ${files.length}…`
+            );
+
+            loadMapData(
+                mapData.get(file.submission.id) || {}
+            );
+
+            renderAll();
+
+            zip.file(
+                `${file.fileBase}.${extension}`,
+                await mapFileFor(
+                    buildExportSvg({
+                        includeReview:
+                            false,
+                        heading:
+                            file.heading
+                    }),
+                    format
+                )
+            );
+        }
+    }
+
+    finally {
+        loadMapData(
+            openMap
+        );
+
+        renderAll();
+    }
+
+    if (run !== downloadAllRun) {
+        return;
+    }
+
+    setProgress(
+        "Making the ZIP folder…"
+    );
+
+    saveFile(
+        await zip.generateAsync({
+            type: "blob"
+        }),
+        `${safePrintFileName(`${task.title || "Untitled Task"} - handed-in maps`)}.zip`
+    );
+}
+
+$("downloadAllMapsButton").addEventListener(
+    "click",
+    () => {
+        if (!selectedTeacherTask) {
+            return;
+        }
+
+        openMapFormatModal(
+            "Download all",
+            `Every handed-in map for ${selectedTeacherTask.title || "this Task"}, one file each, in one ZIP folder.`,
+            downloadAllMaps
+        );
+    }
 );
 
 /* ---------- Teacher: Download this map (Review screen) ---------- */
@@ -25831,6 +26028,7 @@ downloadReviewMapButton.addEventListener(
         }
 
         openMapFormatModal(
+            "Download this map",
             printableMapLabel(
                 reviewSubmission,
                 currentTask?.title

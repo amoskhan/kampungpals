@@ -20219,11 +20219,31 @@ function plural(
     return `${count} ${word}${count === 1 ? "" : "s"}`;
 }
 
-async function showFollowOnHandIn(
-    task
+/*
+Fills container with who has handed in their map for a Task, for each of
+this Teacher's Classes. isStillWanted() is asked once the counts arrive, in
+case the window has closed or moved on meanwhile.
+*/
+async function fillHandInSummary(
+    container,
+    task,
+    {
+        isStillWanted =
+            () => true,
+        failureText =
+            "Couldn’t check who has handed in.",
+        // Keep showing the last counts while new ones load.
+        quiet =
+            false
+    } = {}
 ) {
-    followOnHandIn.textContent =
-        "Checking…";
+    if (
+        !quiet ||
+        !container.childElementCount
+    ) {
+        container.textContent =
+            "Checking…";
+    }
 
     try {
         const summary =
@@ -20231,19 +20251,15 @@ async function showFollowOnHandIn(
                 task
             );
 
-        // The window may have closed, or moved on to another Task, meanwhile.
-        if (
-            followOnModal.hidden ||
-            selectedTeacherTask?.id !== task.id
-        ) {
+        if (!isStillWanted()) {
             return;
         }
 
-        followOnHandIn.textContent =
+        container.textContent =
             "";
 
         if (!summary.length) {
-            followOnHandIn.textContent =
+            container.textContent =
                 "This Task isn’t set for any of your Classes.";
 
             return;
@@ -20297,7 +20313,7 @@ async function showFollowOnHandIn(
                     )
                 );
 
-                followOnHandIn.appendChild(block);
+                container.appendChild(block);
             }
         );
     }
@@ -20307,9 +20323,29 @@ async function showFollowOnHandIn(
             error
         );
 
-        followOnHandIn.textContent =
-            "Couldn’t check who has handed in. You can still create the Task.";
+        if (isStillWanted()) {
+            container.textContent =
+                failureText;
+        }
     }
+}
+
+function showFollowOnHandIn(
+    task
+) {
+    return fillHandInSummary(
+        followOnHandIn,
+        task,
+        {
+            // The window may have closed, or moved on to another Task.
+            isStillWanted:
+                () =>
+                    !followOnModal.hidden &&
+                    selectedTeacherTask?.id === task.id,
+            failureText:
+                "Couldn’t check who has handed in. You can still create the Task."
+        }
+    );
 }
 
 cancelFollowOnButton.addEventListener(
@@ -24133,6 +24169,62 @@ ${escapeHtml(error.message || "Could not load student maps.")}
         result.items,
         result.maps
     );
+
+    refreshGalleryHandIn(
+        result.items
+    );
+}
+
+/*
+The hand-in counts at the top of the Gallery. They are checked again only
+when a map is started or handed in, not on every update while students draw.
+*/
+let galleryHandInSignature =
+    "";
+
+function refreshGalleryHandIn(
+    items
+) {
+    const signature =
+        `${galleryTaskId}|` +
+        items
+            .map(
+                item =>
+                    `${item.id}:${item.status}`
+            )
+            .sort()
+            .join(",");
+
+    if (
+        signature ===
+        galleryHandInSignature
+    ) {
+        return;
+    }
+
+    const firstTime =
+        !galleryHandInSignature.startsWith(
+            `${galleryTaskId}|`
+        );
+
+    galleryHandInSignature =
+        signature;
+
+    const taskId =
+        galleryTaskId;
+
+    fillHandInSummary(
+        $("galleryHandIn"),
+        selectedTeacherTask,
+        {
+            isStillWanted:
+                () =>
+                    isShowingGallery() &&
+                    galleryTaskId === taskId,
+            quiet:
+                !firstTime
+        }
+    );
 }
 
 
@@ -24230,6 +24322,10 @@ async function checkForGalleryUpdates() {
         maps,
         galleryWasDrawn
     );
+
+    refreshGalleryHandIn(
+        items
+    );
 }
 
 
@@ -24245,6 +24341,12 @@ async function openGallery() {
 
     galleryTaskId =
         selectedTeacherTask.id;
+
+    galleryHandInSignature =
+        "";
+
+    $("galleryHandIn").textContent =
+        "Checking…";
 
 
     galleryHeading.textContent =
@@ -25966,8 +26068,34 @@ window stays open with a message if it fails, and closes once saved.
 function openMapFormatModal(
     title,
     description,
-    save
+    save,
+    {
+        // Download all: the Task whose hand-in summary is shown first.
+        summaryTask =
+            null
+    } = {}
 ) {
+    const opening =
+        downloadAllRun;
+
+    $("mapFormatHandInBox").hidden =
+        !summaryTask;
+
+    if (summaryTask) {
+        fillHandInSummary(
+            $("mapFormatHandIn"),
+            summaryTask,
+            {
+                isStillWanted:
+                    () =>
+                        !mapFormatModal.hidden &&
+                        downloadAllRun === opening,
+                failureText:
+                    "Couldn’t check who has handed in. You can still download the handed-in maps."
+            }
+        );
+    }
+
     $("mapFormatTitle").textContent =
         title;
 
@@ -26220,7 +26348,11 @@ $("downloadAllMapsButton").addEventListener(
         openMapFormatModal(
             "Download all",
             `Every handed-in map for ${selectedTeacherTask.title || "this Task"}, one file each, in one ZIP folder.`,
-            downloadAllMaps
+            downloadAllMaps,
+            {
+                summaryTask:
+                    selectedTeacherTask
+            }
         );
     }
 );

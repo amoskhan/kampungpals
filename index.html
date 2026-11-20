@@ -11,7 +11,7 @@ href="assets/logo.svg"
 >
 <link
 rel="stylesheet"
-href="css/style.css?v=20261120e"
+href="css/style.css?v=20261120h"
 >
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -222,6 +222,10 @@ Abstract Mapping
 </div>
 
 <div class="task-copy">
+<div id="mapCarriedNote" class="map-carried-note" role="status" hidden>
+<span id="mapCarriedNoteText"></span>
+<button id="closeMapCarriedNote" type="button" aria-label="Close">×</button>
+</div>
 <p id="taskInstructions"></p>
 <p id="taskMembers" class="task-members"></p>
 <div id="followOnLinks" class="follow-on-links" hidden></div>
@@ -1580,7 +1584,7 @@ class="submission-list"
 
 </div>
 
-<div class="reference-manager follow-on-manager">
+<div id="followOnManager" class="reference-manager follow-on-manager">
 
 <div>
 <div class="mini-label">
@@ -2272,15 +2276,36 @@ Create a follow-on Task?
 </h2>
 
 <p class="modal-description">
-A new Task, <strong id="followOnNewTitle"></strong>, follows on from <strong id="followOnEarlierTitle"></strong>.
+Students start with a copy of their map from <strong id="followOnEarlierTitle"></strong>.
 </p>
 
+<div class="follow-on-hand-in">
+<div class="follow-on-hand-in-heading">
+Who has handed in their map?
+</div>
+<div id="followOnHandIn" class="follow-on-hand-in-list">
+Checking…
+</div>
+<p class="follow-on-hand-in-note">
+Students who haven’t handed in will be asked to hand in their map when they open the new Task. You can also close this and use <strong>Hand in for them</strong> first.
+</p>
+</div>
+
+<label class="follow-on-field" for="followOnTitleInput">
+<span>Title</span>
+<input id="followOnTitleInput" type="text" maxlength="120" autocomplete="off">
+</label>
+
+<label class="follow-on-field" for="followOnInstructionsInput">
+<span>What students do in this lesson</span>
+<textarea id="followOnInstructionsInput" rows="3" maxlength="1000"></textarea>
+</label>
+
 <ul class="follow-on-points">
-<li>Each student or Group starts with a <strong>copy</strong> of the map they made in this Task.</li>
 <li>Their map and your feedback in this Task stay <strong>exactly as they are</strong>.</li>
 <li>Groups stay the same. A student who missed this Task can be added to a Group, or start their own map.</li>
 <li>It gets its <strong>own Task Code</strong>, and students can also continue straight from their map in this Task.</li>
-<li>It uses the same Classes, Reference Map and tools, with the <strong>Hazard</strong> tool switched on. You can change these, and add instructions, before sharing the code.</li>
+<li>It uses the same Classes, Reference Map and tools, with the <strong>Hazard</strong> tool switched on.</li>
 </ul>
 
 <div
@@ -3026,13 +3051,13 @@ Save
 </div>
 
 <!-- Change ?v= on these files whenever they change, so browsers stop using old copies. -->
-<script src="js/project-access.js?v=20261120e"></script>
-<script src="js/reference-fit.js?v=20261120e"></script>
-<script src="js/follow-on.js?v=20261120e"></script>
-<script src="js/map-downloads.js?v=20261120e"></script>
-<script src="js/app.js?v=20261120e"></script>
-<script src="js/map-tools.js?v=20261120e"></script>
-<script src="js/revised-map.js?v=20261120e"></script>
-<script src="js/tutorial.js?v=20261120e"></script>
+<script src="js/project-access.js?v=20261120h"></script>
+<script src="js/reference-fit.js?v=20261120h"></script>
+<script src="js/follow-on.js?v=20261120h"></script>
+<script src="js/map-downloads.js?v=20261120h"></script>
+<script src="js/app.js?v=20261120h"></script>
+<script src="js/map-tools.js?v=20261120h"></script>
+<script src="js/revised-map.js?v=20261120h"></script>
+<script src="js/tutorial.js?v=20261120h"></script>
 </body>
 </html>

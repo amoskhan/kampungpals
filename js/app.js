@@ -12769,14 +12769,23 @@ async function showStudentReviewVerdict(
         return;
     }
 
-    const { data, error } =
-        await sb.rpc(
-            "review_verdict",
-            {
-                p_submission_id:
-                    submissionId
-            }
-        );
+    let data;
+    let error;
+
+    try {
+        ({ data, error } =
+            await sb.rpc(
+                "review_verdict",
+                {
+                    p_submission_id:
+                        submissionId
+                }
+            ));
+    }
+    catch (failure) {
+        error =
+            failure;
+    }
 
     // Before the database step is run there is simply no verdict to show.
     if (

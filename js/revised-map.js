@@ -676,6 +676,82 @@
         0;
 
     /*
+    The current map's Review: "approved", "returned", null when it has none,
+    or undefined when it couldn't be checked (before the database step is
+    run), in which case Revised Maps work as before.
+    */
+    let currentReviewVerdict =
+
+        undefined;
+
+    async function fetchReviewVerdict(
+
+        submissionId
+
+    ) {
+
+        let data;
+        let error;
+
+        try {
+
+            ({ data, error } =
+
+                await sb.rpc(
+
+                    "review_verdict",
+
+                    {
+
+                        p_submission_id:
+
+                            submissionId
+
+                    }
+
+                ));
+
+        }
+
+        catch (
+
+            failure
+
+        ) {
+
+            error =
+
+                failure;
+
+        }
+
+        if (
+
+            error
+
+        ) {
+
+            return undefined;
+
+        }
+
+        return (
+
+            Array.isArray(
+
+                data
+
+            )
+
+                ? data[0]
+
+                : data
+
+        ) ?? null;
+
+    }
+
+    /*
     activeTaskScope is the task folder currently unlocked by a
     valid task code.
 
@@ -1618,6 +1694,19 @@ Enter a task code above to open a task.
                 ?.correction_submission_id ||
             null;
 
+        // Only a Returned map can have a Revised Map; one already started opens.
+        if (
+            !correctionId &&
+            currentReviewVerdict !== undefined &&
+            currentReviewVerdict !== "returned"
+        ) {
+            startCorrectionsButton.hidden =
+                true;
+            reviewActions.hidden =
+                viewOriginalButton.hidden;
+            return;
+        }
+
         startCorrectionsButton.hidden =
             false;
 
@@ -1797,6 +1886,20 @@ Enter a task code above to open a task.
                 parentReview
             );
 
+            return;
+        }
+
+        currentReviewVerdict =
+            await fetchReviewVerdict(
+                submissionId
+            );
+
+        if (
+            requestId !==
+                correctionUiRequest ||
+            currentSubmission?.id !==
+                submissionId
+        ) {
             return;
         }
 

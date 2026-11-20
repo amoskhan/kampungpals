@@ -27325,34 +27325,20 @@ async function startFollowOnProject(
         return false;
     }
 
-    // No earlier map: choose a Group from classmates who had none either.
-    if (
-        step === "blank" &&
-        studentId
-    ) {
-        const free =
-            await followOnRows(
-                "student_list_follow_on_free",
-                {
-                    p_task_code:
-                        task.task_code,
-                    p_student_id:
-                        studentId
-                }
+    /*
+    No earlier map (absent from the earlier lesson): a student joins a Group
+    whose Follow-on map has started; a Guest, never in a Group, can't take part.
+    */
+    if (step === "blank") {
+        if (!studentId) {
+            throw new Error(
+                "This Task builds on an earlier map you don't have. Ask your teacher."
             );
-
-        pendingFollowOnFree =
-            new Set(
-                free.map(
-                    student => student.student_id
-                )
-            );
-
-        pendingTaskLookup =
-            task;
-
-        await showGroupSelection();
-
+        }
+        await openJoinGroup(
+            task,
+            studentId
+        );
         return true;
     }
 
@@ -27403,6 +27389,155 @@ async function startFollowOnProject(
 
     return true;
 }
+
+/* ---------- Join a Group (no earlier map) ---------- */
+
+let pendingJoinGroup =
+    null;
+
+async function openJoinGroup(
+    task,
+    studentId
+) {
+    const groups =
+        await followOnRows(
+            "student_list_follow_on_groups",
+            {
+                p_task_code:
+                    task.task_code,
+                p_student_id:
+                    studentId
+            }
+        );
+    const list =
+        $("joinGroupList");
+    list.innerHTML =
+        groups.length
+            ? ""
+            : '<p class="helper-text">No Group has opened this Task yet. Ask your Group to open it, then try again.</p>';
+    groups.forEach(
+        group => {
+            const label =
+                document.createElement(
+                    "label"
+                );
+            label.className =
+                "group-member-option";
+            const input =
+                document.createElement(
+                    "input"
+                );
+            input.type =
+                "radio";
+            input.name =
+                "joinGroup";
+            input.value =
+                group.submission_id;
+            const name =
+                document.createElement(
+                    "span"
+                );
+            name.textContent =
+                group.group_name ||
+                "Group";
+            label.append(
+                input,
+                name
+            );
+            list.appendChild(
+                label
+            );
+        }
+    );
+    pendingJoinGroup = {
+        task,
+        studentId
+    };
+    $("joinGroupError").hidden =
+        true;
+    $("confirmJoinGroupButton").disabled =
+        !groups.length;
+    $("joinGroupModal").hidden =
+        false;
+    document.body.classList.add(
+        "modal-open"
+    );
+}
+
+function closeJoinGroup() {
+    pendingJoinGroup =
+        null;
+    $("joinGroupModal").hidden =
+        true;
+    document.body.classList.remove(
+        "modal-open"
+    );
+}
+
+$("cancelJoinGroupButton").addEventListener(
+    "click",
+    closeJoinGroup
+);
+
+$("confirmJoinGroupButton").addEventListener(
+    "click",
+    async () => {
+        const chosen =
+            $("joinGroupList")
+                .querySelector(
+                    'input[name="joinGroup"]:checked'
+                );
+        const error =
+            $("joinGroupError");
+        if (!chosen) {
+            error.textContent =
+                "Choose a Group to join.";
+            error.hidden =
+                false;
+            return;
+        }
+        if (!pendingJoinGroup) {
+            return;
+        }
+        const button =
+            $("confirmJoinGroupButton");
+        button.disabled =
+            true;
+        try {
+            const [submissionId] =
+                await followOnRows(
+                    "student_join_follow_on_group",
+                    {
+                        p_task_code:
+                            pendingJoinGroup.task.task_code,
+                        p_student_id:
+                            pendingJoinGroup.studentId,
+                        p_submission_id:
+                            chosen.value
+                    }
+                );
+            closeJoinGroup();
+            await loadStudentProject(
+                submissionId ||
+                chosen.value
+            );
+        }
+        catch (failure) {
+            console.error(
+                failure
+            );
+            error.textContent =
+                failure.message ||
+                "Could not join this Group.";
+            error.hidden =
+                false;
+        }
+        finally {
+            button.disabled =
+                false;
+        }
+    }
+);
 
 // "Continue in …": open the Follow-on Task straight from the earlier map.
 async function continueInFollowOnTask(

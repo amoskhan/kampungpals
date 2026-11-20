@@ -20,7 +20,7 @@ create table public.students (
   id uuid primary key default gen_random_uuid(),
   class_id uuid not null,
   register_no integer,
-  first_name text,
+  student_name text,
   active boolean not null default true
 );
 

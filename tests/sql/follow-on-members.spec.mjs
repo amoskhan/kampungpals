@@ -40,7 +40,7 @@ async function one(db, query, params = []) {
 
 async function student(db, name) {
     const { id } = await one(db,
-        "insert into students (class_id, first_name) values ($1, $2) returning id",
+        "insert into students (class_id, student_name) values ($1, $2) returning id",
         [CLASS, name]);
     const { uid } = await one(db, "select gen_random_uuid() as uid");
     await db.query("insert into student_sessions (auth_uid, student_id) values ($1, $2)", [uid, id]);

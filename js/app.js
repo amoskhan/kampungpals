@@ -21496,6 +21496,55 @@ function referenceCropsToSave() {
 Settings to store when a new Reference Map is uploaded: crops chosen for the old
 image are cleared, but each device keeps its fit.
 */
+/*
+The teacher's unsaved edits in the Task form. Uploading or removing a Reference
+Map reloads the Task from the database, which would otherwise wipe a title or
+instructions typed but not yet saved.
+*/
+function readTaskFormEdits() {
+    return {
+        title: teacherTaskTitle.value,
+        instructions: teacherTaskInstructions.value,
+        allowGuests: allowGuests.checked,
+        tools: Object.fromEntries(
+            Object.entries(permissionInputs)
+                .map(([key, input]) => [key, input.checked])
+        ),
+        classIds: new Set(
+            Array.from(
+                taskAssignedClasses.querySelectorAll(
+                    'input[type="checkbox"]:checked'
+                )
+            ).map(input => input.value)
+        )
+    };
+}
+
+function restoreTaskFormEdits(edits) {
+    teacherTaskTitle.value = edits.title;
+    teacherTaskInstructions.value = edits.instructions;
+    allowGuests.checked = edits.allowGuests;
+
+    Object.entries(permissionInputs)
+        .forEach(([key, input]) => {
+            input.checked = edits.tools[key];
+        });
+
+    taskAssignedClasses
+        .querySelectorAll('input[type="checkbox"]')
+        .forEach(input => {
+            input.checked = edits.classIds.has(input.value);
+        });
+}
+
+async function reloadTeacherTaskKeepingEdits(task) {
+    const edits = readTaskFormEdits();
+
+    await selectTeacherTask(task);
+
+    restoreTaskFormEdits(edits);
+}
+
 function toolsWithoutReferenceCrops() {
     return {
         ...(
@@ -22244,7 +22293,7 @@ teacherReferenceFile.addEventListener(
         }
 
 
-        await selectTeacherTask(
+        await reloadTeacherTaskKeepingEdits(
             selectedTeacherTask
         );
 
@@ -22337,7 +22386,7 @@ removeReferenceButton.addEventListener(
             updated.data;
 
 
-        await selectTeacherTask(
+        await reloadTeacherTaskKeepingEdits(
             selectedTeacherTask
         );
     }
